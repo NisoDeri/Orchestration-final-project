@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>q20 — 20 Questions League · nis-yar1</title>
+  <link rel="stylesheet" href="theme.css" />
+</head>
+<body>
+  <header class="titlebar">
+    <h1>q20&nbsp;&middot;&nbsp;20&nbsp;QUESTIONS&nbsp;LEAGUE</h1>
+    <p class="subtitle">nis-yar1 &middot; a Judge and a Player agent duel over MCP &mdash; hint &amp; word-chain,
+      20 multiple-choice questions, one guess, a deterministic referee</p>
+  </header>
+
+  <nav class="tabs">
+    <button id="tab-standings" class="active">League standings</button>
+    <button id="tab-replay">Round replay</button>
+  </nav>
+
+  <main>
+    <!-- STANDINGS -->
+    <section id="view-standings" class="view active">
+      <div class="panel">
+        <div class="card-frame">
+          <h2>Standings <small id="standings-meta">round-robin &middot; rank &rarr; grade (1st&asymp;100 &hellip; last&asymp;70)</small></h2>
+          <table class="standings">
+            <thead><tr><th>#</th><th>Group</th><th>Points</th><th>Share</th><th>Grade</th></tr></thead>
+            <tbody id="standings-body"></tbody>
+          </table>
+          <p class="empty" id="standings-empty">Load a league log (artifacts/league.json) to see standings.</p>
+        </div>
+        <div class="card-frame" style="margin-top:14px">
+          <h3>Rounds played</h3>
+          <table class="standings">
+            <thead><tr><th>Judge</th><th>Player</th><th>Outcome</th><th>Player pts</th><th>Judge pts</th><th>Guessed</th></tr></thead>
+            <tbody id="rounds-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ROUND REPLAY -->
+    <section id="view-replay" class="view">
+      <div class="panel">
+        <div class="roundbar">
+          <span class="chip judge" id="r-judge">JUDGE</span>
+          <span class="chip">vs</span>
+          <span class="chip player" id="r-player">PLAYER</span>
+          <span class="spacer" style="flex:1"></span>
+          <span class="chip" id="r-outcome">&mdash;</span>
+        </div>
+        <div class="card-frame hintbox">
+          <h3>Judge&rsquo;s hint</h3>
+          <p id="r-hint">&mdash;</p>
+          <div class="chain" id="r-chain"></div>
+        </div>
+        <div class="grid2">
+          <div class="card-frame">
+            <h3>The 20 questions <small>multiple-choice &middot; judge&rsquo;s pick is ticked</small></h3>
+            <ul class="qa-list" id="qa-list"></ul>
+          </div>
+          <div>
+            <div class="card-frame">
+              <h3>Player&rsquo;s guess vs truth</h3>
+              <div class="guess-row"><span class="lbl">Opening sentence</span></div>
+              <div class="guess-row"><span>guess</span><b id="g-sentence">&mdash;</b></div>
+              <div class="guess-row"><span>truth</span><b id="t-sentence">&mdash;</b></div>
+              <div class="guess-row"><span class="lbl">Associative word</span><span id="word-mark"></span></div>
+              <div class="guess-row"><span>guess</span><b id="g-word">&mdash;</b></div>
+              <div class="guess-row"><span>truth</span><b id="t-word">&mdash;</b></div>
+            </div>
+            <div class="card-frame" style="margin-top:14px">
+              <h3>Referee score</h3>
+              <div class="scoreboard">
+                <div class="scorecell judge"><div class="who">JUDGE</div><div class="pts" id="s-judge">0</div><div class="model" id="m-judge"></div></div>
+                <div class="scorecell player"><div class="who">PLAYER</div><div class="pts" id="s-player">0</div><div class="model" id="m-player"></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="empty" id="replay-empty">Load a round log (artifacts/round_log.json) to replay a match.</p>
+      </div>
+    </section>
+
+    <footer class="controls">
+      <button id="btn-reload">&#x27F3; Reload latest</button>
+      <span class="spacer"></span>
+      <label class="load">Load league JSON <input id="file-league" type="file" accept="application/json" /></label>
+      <label class="load">Load round JSON <input id="file-round" type="file" accept="application/json" /></label>
+      <span id="src" class="src"></span>
+    </footer>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

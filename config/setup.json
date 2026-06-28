@@ -1,0 +1,47 @@
+{
+  "version": "1.00",
+  "project": {
+    "name": "q20",
+    "group": "nis-yar1",
+    "course": "Orchestration of AI Agents",
+    "lecturer": "Dr. Yoram Segal",
+    "authors": ["Nissim Deri", "Yarden Tziar"],
+    "github_repo": "https://github.com/NisoDeri/orchestration-final",
+    "timezone": "Asia/Jerusalem"
+  },
+  "game": {
+    "questions": 20,
+    "options": 4,
+    "seed": 7,
+    "answer_time_limit_seconds": 180,
+    "scoring": {
+      "win": 3,
+      "tie": 1,
+      "loss": 1,
+      "judge": 2
+    },
+    "corpus": {
+      "source": "bundled",
+      "path": "data/corpus.sample.json"
+    }
+  },
+  "league": {
+    "rounds": 6,
+    "roles_per_group": {
+      "player": 4,
+      "judge": 2
+    },
+    "pairing": "round_robin"
+  },
+  "servers": {
+    "host": "127.0.0.1",
+    "judge": 8765,
+    "player": 8766,
+    "live": false
+  },
+  "email": {
+    "to": "rmisegal+uoh26b@gmail.com",
+    "subject": "nis-yar1 — q20 league report",
+    "add_calendar_event": true
+  }
+}

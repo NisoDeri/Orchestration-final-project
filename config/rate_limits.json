@@ -1,0 +1,14 @@
+{
+  "version": "1.00",
+  "services": {
+    "default":  { "requests_per_minute": 120, "concurrent_max": 2, "retry_after_seconds": 2, "max_retries": 2 },
+    "ollama":   { "requests_per_minute": 120, "concurrent_max": 2, "retry_after_seconds": 2, "max_retries": 2 },
+    "mcp":      { "requests_per_minute": 600, "concurrent_max": 4, "retry_after_seconds": 1, "max_retries": 3 },
+    "gmail":    { "requests_per_minute": 30,  "concurrent_max": 1, "retry_after_seconds": 3, "max_retries": 3 },
+    "calendar": { "requests_per_minute": 30,  "concurrent_max": 1, "retry_after_seconds": 3, "max_retries": 3 }
+  },
+  "cost": {
+    "track": true,
+    "max_cost_usd_per_run": 1.0
+  }
+}

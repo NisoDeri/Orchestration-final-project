@@ -1,0 +1,11 @@
+{
+  "version": "1.00",
+  "provider": "ollama",
+  "ollama_base_url": "http://localhost:11434",
+  "agents": {
+    "judge":  { "model": "qwen2.5:7b",     "temperature": 0.2 },
+    "player": { "model": "aya-expanse:8b", "temperature": 0.5 },
+    "default": { "model": "qwen2.5:7b",    "temperature": 0.3 }
+  },
+  "_note": "Two DIFFERENT local models so Judge/Player dialogue is genuine cross-model communication; both keyless via Ollama."
+}

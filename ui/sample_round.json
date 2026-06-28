@@ -1,0 +1,248 @@
+{
+  "group_name": "nis-yar1",
+  "students": [
+    "Nissim Deri",
+    "Yarden Tziar"
+  ],
+  "github_repo": "https://github.com/NisoDeri/orchestration-final",
+  "project": {
+    "name": "q20",
+    "group": "nis-yar1",
+    "course": "Orchestration of AI Agents",
+    "lecturer": "Dr. Yoram Segal",
+    "authors": [
+      "Nissim Deri",
+      "Yarden Tziar"
+    ],
+    "github_repo": "https://github.com/NisoDeri/orchestration-final",
+    "timezone": "Asia/Jerusalem"
+  },
+  "public_view": {
+    "hint": "A schedule where everyone plays everyone, so standings reward consistency.",
+    "chain": [
+      "league",
+      "schedule",
+      "everyone-plays-everyone",
+      "fairness"
+    ]
+  },
+  "questions": [
+    {
+      "text": "Is the theme related to 'league'?",
+      "options": [
+        "league",
+        "schedule",
+        "everyone-plays-everyone",
+        "fairness"
+      ],
+      "chosen": 0
+    },
+    {
+      "text": "Is the theme related to 'schedule'?",
+      "options": [
+        "league",
+        "schedule",
+        "everyone-plays-everyone",
+        "fairness"
+      ],
+      "chosen": 0
+    },
+    {
+      "text": "Is the theme related to 'everyone-plays-everyone'?",
+      "options": [
+        "league",
+        "schedule",
+        "everyone-plays-everyone",
+        "fairness"
+      ],
+      "chosen": 0
+    },
+    {
+      "text": "Is the theme related to 'fairness'?",
+      "options": [
+        "league",
+        "schedule",
+        "everyone-plays-everyone",
+        "fairness"
+      ],
+      "chosen": 0
+    },
+    {
+      "text": "Is the theme related to 'league'?",
+      "options": [
+        "league",
+        "schedule",
+        "everyone-plays-everyone",
+        "fairness"
+      ],
+      "chosen": 0
+    },
+    {
+      "text": "Is the theme related to 'schedule'?",
+      "options": [
+        "league",
+        "schedule",
+        "everyone-plays-everyone",
+        "fairness"
+      ],
+      "chosen": 0
+    },
+    {
+      "text": "Is the theme related to 'everyone-plays-everyone'?",
+      "options": [
+        "league",
+        "schedule",
+        "everyone-plays-everyone",
+        "fairness"
+      ],
+      "chosen": 0
+    },
+    {
+      "text": "Is the theme related to 'fairness'?",
+      "options": [
+        "league",
+        "schedule",
+        "everyone-plays-everyone",
+        "fairness"
+      ],
+      "chosen": 0
+    },
+    {
+      "text": "Is the theme related to 'league'?",
+      "options": [
+        "league",
+        "schedule",
+        "everyone-plays-everyone",
+        "fairness"
+      ],
+      "chosen": 0
+    },
+    {
+      "text": "Is the theme related to 'schedule'?",
+      "options": [
+        "league",
+        "schedule",
+        "everyone-plays-everyone",
+        "fairness"
+      ],
+      "chosen": 0
+    },
+    {
+      "text": "Is the theme related to 'everyone-plays-everyone'?",
+      "options": [
+        "league",
+        "schedule",
+        "everyone-plays-everyone",
+        "fairness"
+      ],
+      "chosen": 0
+    },
+    {
+      "text": "Is the theme related to 'fairness'?",
+      "options": [
+        "league",
+        "schedule",
+        "everyone-plays-everyone",
+        "fairness"
+      ],
+      "chosen": 0
+    },
+    {
+      "text": "Is the theme related to 'league'?",
+      "options": [
+        "league",
+        "schedule",
+        "everyone-plays-everyone",
+        "fairness"
+      ],
+      "chosen": 0
+    },
+    {
+      "text": "Is the theme related to 'schedule'?",
+      "options": [
+        "league",
+        "schedule",
+        "everyone-plays-everyone",
+        "fairness"
+      ],
+      "chosen": 0
+    },
+    {
+      "text": "Is the theme related to 'everyone-plays-everyone'?",
+      "options": [
+        "league",
+        "schedule",
+        "everyone-plays-everyone",
+        "fairness"
+      ],
+      "chosen": 0
+    },
+    {
+      "text": "Is the theme related to 'fairness'?",
+      "options": [
+        "league",
+        "schedule",
+        "everyone-plays-everyone",
+        "fairness"
+      ],
+      "chosen": 0
+    },
+    {
+      "text": "Is the theme related to 'league'?",
+      "options": [
+        "league",
+        "schedule",
+        "everyone-plays-everyone",
+        "fairness"
+      ],
+      "chosen": 0
+    },
+    {
+      "text": "Is the theme related to 'schedule'?",
+      "options": [
+        "league",
+        "schedule",
+        "everyone-plays-everyone",
+        "fairness"
+      ],
+      "chosen": 0
+    },
+    {
+      "text": "Is the theme related to 'everyone-plays-everyone'?",
+      "options": [
+        "league",
+        "schedule",
+        "everyone-plays-everyone",
+        "fairness"
+      ],
+      "chosen": 0
+    },
+    {
+      "text": "Is the theme related to 'fairness'?",
+      "options": [
+        "league",
+        "schedule",
+        "everyone-plays-everyone",
+        "fairness"
+      ],
+      "chosen": 0
+    }
+  ],
+  "guess": {
+    "opening_sentence": "A round-robin tournament guarantees that every competitor faces every other exactly once.",
+    "associative_word": "fairness"
+  },
+  "truth": {
+    "opening_sentence": "A round-robin tournament guarantees that every competitor faces every other exactly once.",
+    "associative_word": "fairness"
+  },
+  "outcome": "win",
+  "scores": {
+    "player": 3,
+    "judge": 2
+  },
+  "models": {
+    "judge": "qwen2.5:7b",
+    "player": "aya-expanse:8b"
+  }
+}

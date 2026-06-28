@@ -1,0 +1,33 @@
+{
+  "version": "1.00",
+  "paragraphs": [
+    {
+      "paragraph": "The Model Context Protocol lets autonomous agents exchange tools and data over a shared stream. Like a river carrying boats between towns, it turns isolated programs into a flowing network of cooperating services, so communication becomes the substance of the system rather than an afterthought.",
+      "opening_sentence": "The Model Context Protocol lets autonomous agents exchange tools and data over a shared stream.",
+      "associative_word": "communication",
+      "hint": "A protocol that turns isolated programs into one flowing, cooperating network.",
+      "chain": ["MCP", "stream", "flow", "communication"]
+    },
+    {
+      "paragraph": "Photosynthesis is the engine of almost every food chain on Earth. Leaves capture sunlight and quietly convert carbon dioxide and water into sugar, releasing the oxygen we breathe as a by-product, so a forest is in truth a vast solar factory humming in green.",
+      "opening_sentence": "Photosynthesis is the engine of almost every food chain on Earth.",
+      "associative_word": "energy",
+      "hint": "How green leaves turn light into the fuel that feeds the planet.",
+      "chain": ["sunlight", "leaf", "sugar", "energy"]
+    },
+    {
+      "paragraph": "A round-robin tournament guarantees that every competitor faces every other exactly once. Because no one is eliminated early, the final standings reflect consistent strength across many matches rather than the luck of a single bracket, which is why leagues prize it for fairness.",
+      "opening_sentence": "A round-robin tournament guarantees that every competitor faces every other exactly once.",
+      "associative_word": "fairness",
+      "hint": "A schedule where everyone plays everyone, so standings reward consistency.",
+      "chain": ["league", "schedule", "everyone-plays-everyone", "fairness"]
+    },
+    {
+      "paragraph": "Deterministic code produces the same output for the same input every single time. This predictability is what makes a referee trustworthy: when the rules never depend on chance or hidden state, both players can verify the verdict, and a test suite can pin the behavior forever.",
+      "opening_sentence": "Deterministic code produces the same output for the same input every single time.",
+      "associative_word": "predictability",
+      "hint": "The property that lets a referee be trusted and a test suite pin behavior.",
+      "chain": ["same-input", "same-output", "verifiable", "predictability"]
+    }
+  ]
+}
