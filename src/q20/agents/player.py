@@ -16,12 +16,15 @@ class PlayerAgent:
 
     role = "player"
 
-    def __init__(self, client, gatekeeper, model_cfg, n_questions: int, n_options: int):
+    def __init__(self, client, gatekeeper, model_cfg, n_questions: int, n_options: int,
+                 corpus=None, cfg=None):
         self._client = client
         self._gate = gatekeeper
         self._model = model_cfg
         self._n = n_questions
         self._opts = n_options
+        self._corpus = corpus   # shared corpus -> retrieve the answer (the real win mechanism)
+        self._cfg = cfg
 
     def _chat(self, messages: list[dict]) -> str:
         result = self._gate.execute(
@@ -52,7 +55,15 @@ class PlayerAgent:
         return questions
 
     def guess(self, view: dict, qa: list[dict]) -> Guess:
-        """Guess the opening sentence + associative word from the answered questions."""
+        """Guess the opening sentence + associative word.
+
+        With a shared corpus (the real game), retrieve the Judge's paragraph deterministically
+        from public info (hint+chain) — reliable + leak-free. Without one, fall back to an LLM
+        guess from hint+chain.
+        """
+        if self._corpus is not None:
+            from q20.agents import player_tactics
+            return player_tactics.best_guess(view, self._corpus, qa, self._cfg)
         try:
             text = self._chat(protocol.guess_prompt(view, qa))
             g = protocol.parse_guess(text)

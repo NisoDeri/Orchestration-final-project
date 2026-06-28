@@ -6,8 +6,13 @@
     "course": "Orchestration of AI Agents",
     "lecturer": "Dr. Yoram Segal",
     "authors": ["Nissim Deri", "Yarden Tziar"],
-    "github_repo": "https://github.com/NisoDeri/orchestration-final",
+    "github_repo": "https://github.com/NisoDeri/Orchestration-final-project",
     "timezone": "Asia/Jerusalem"
+  },
+  "player": {
+    "shared_corpus": true,
+    "prior_floor": 0.0,
+    "use_answers": false
   },
   "game": {
     "questions": 20,

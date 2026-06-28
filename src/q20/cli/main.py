@@ -32,7 +32,8 @@ def _write_log(log: dict, out_dir: Path) -> Path:
 def _play_round(args) -> None:
     cfg = ConfigLoader(_CONFIG_DIR).load()
     corpus = load_corpus(cfg, _ROOT)
-    agents = fake_agents(cfg) if args.fake else live_agents(cfg, ConfigLoader.build_gatekeeper(cfg))
+    agents = (fake_agents(cfg) if args.fake
+              else live_agents(cfg, ConfigLoader.build_gatekeeper(cfg), corpus))
     log = run_round(agents[Role.JUDGE.value], agents[Role.PLAYER.value], corpus, cfg)
     path = _write_log(log, Path(args.out or "artifacts"))
     summary = get_report(log)
