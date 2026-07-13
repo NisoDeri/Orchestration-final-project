@@ -1,0 +1,53 @@
+# THIEF peer — PRIVATE local settings only. Shared/agreed terms live in game.json.
+version = "0.1.0"
+
+[game]
+group_name = "nis-yar1"
+group_id = "nis-yar1"
+members = ["Nissim Deri", "Yarden Tziar"]
+sub_game_number = 1
+repos = { cop = "https://github.com/NisoDeri/nis-yar1-cop", thief = "https://github.com/NisoDeri/nis-yar1-thief" }
+mcp_servers = { cop = "http://127.0.0.1:8802/mcp", thief = "http://127.0.0.1:8801/mcp" }
+
+[belief]
+smell_trust_weight = 4.0
+motion_kernel_eta = 2.0        # adversarial diffusion sharpness (STRATEGY.md 2.4); 0 = uniform
+zero_scent_weight = 0.6        # negative-evidence strength (STRATEGY.md 2.3)
+hint_trust_prior = 0.5         # reliability coefficient r_0 (Beta ledger prior)
+
+[strategy]
+police_class = "pursuit.strategy.police:InterceptorPoliceBrain"
+thief_class = "pursuit.strategy.thief:SurvivorThiefBrain"
+
+[trash_talk]
+provider = "template"          # template | ollama; gauntlet champion set after lab E10
+model = "qwen3:14b"
+interpreter_model = "qwen2.5:7b"
+every_n_steps = 2
+deadline_seconds = 8
+ollama_url = "http://localhost:11434"
+
+[llm_defense]
+injection_penalty = 0.25
+max_lie_rate = 0.35
+
+[network]
+my_port = 8801
+opponent_url = "http://127.0.0.1:8802/mcp"
+turn_timeout_seconds = 180
+poll_interval_seconds = 0.5
+connect_timeout_seconds = 60
+retry_interval_seconds = 1.0
+audit_send_timeout_seconds = 10
+
+[email]
+recipient = "rmisegal+uoh26finalgame@gmail.com"
+enabled = false
+credentials_dir = "secrets"    # git-ignored; HW6 OAuth send-only token
+
+[paths]
+logs_dir = "logs"
+
+[play]
+step_speed_seconds = 0.5
+seed = 1234
