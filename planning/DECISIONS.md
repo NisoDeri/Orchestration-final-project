@@ -24,8 +24,9 @@ reference's book deviations (below). Where we adapt a fragment, we attribute in-
   branches** (book Appendix C mandates branch-per-capability); the two deliverable repos are
   populated from it with **role-trimmed strategy**: cop repo ships only the police brain,
   thief repo only the thief brain. The engine (domain/peer/infra/shared) is identical in both —
-  pending NotebookLM confirmation that an identical shared engine is acceptable (reference itself
-  is one codebase for both roles; risk assessed LOW).
+  **CONFIRMED legal by NotebookLM A4 (2026-07-13)**: the two repos may share an identical
+  engine/SDK package; Zero-Trust requires separate OS processes, separate config dirs and no
+  shared memory/live state — not independently-developed code.
 - Zero-Trust at **runtime**: two OS processes, two config dirs (`config/police/`,
   `config/thief/`), no shared live state, ever.
 
@@ -35,10 +36,17 @@ Two known dialect splits exist between the book and the reference. We implement 
 each**, selected by the signed shared config and **locked pre-series** (rule 23):
 
 - **Commit hash construction**: `reference` = sha256(canonical_json(payload) + "|" + nonce);
-  `book` = sha256(canonical_json({...payload, nonce})). Default: `reference`.
+  `book` = sha256(canonical_json({...payload, nonce})). Default: **`book`** — NotebookLM ruling
+  A1 (2026-07-13): the book construction (nonce INSIDE the canonical JSON, chapter-5 schema) is
+  authoritative for league cross-audits; the reference's pipe-appended form is a "simplified
+  sketch". We keep the `reference` dialect implemented for stock-reference partners, selected
+  only by explicit negotiation + rule-23 lock.
 - **Scent model**: `reference` = subtractive decay + max-merge deposit; `book` =
-  τ(t+1)=max(0,(1−ρ)·τ+Δτ) multiplicative + additive. Default: whatever the partner runs —
-  exchanged with a **numeric worked example + SHA-256 lock** before every series.
+  τ(t+1)=max(0,(1−ρ)·τ+Δτ) multiplicative + additive. Default: **`book`** — NotebookLM ruling
+  A2 (2026-07-13): the book equation is the reference standard; adopting the reference dialect
+  is a LEGAL mutually-agreed upgrade if exchanged + cryptographically locked at Step-0 (rule 23).
+  Either way, priority = both peers byte-identical: **numeric worked example + SHA-256 lock**
+  before every series.
 
 Everything else negotiable (coordinate system, starts, arena, hint cap, minimums) sits in
 `game.json` per Appendix F, generated per game as `config_<game_id>_g<NN>.json`.
@@ -57,7 +65,9 @@ Single **Orchestrator** entry (SDK); explicit **turn state machine** with illega
 rejection; **deadline tracking** on every wait; **watchdog** (60s freeze threshold) with
 controlled log extraction on crash; **3-gate Gatekeeper** (daily quota → token-bucket →
 DOS/circuit-breaker) in front of Gmail AND the LLM; live UI shows **local truth only**;
-**ngrok tunneling** via our paid plan + reserved domains (one per role) with preflight checks.
+**public tunneling** with preflight
+checks — provider decided at Stage 5: fresh ngrok account or a free named Cloudflare tunnel
+(the old paid ngrok account was deleted; both paths documented in LEAGUE-OPS §2).
 
 ## D6. The graded core: belief + brains (all-Python moves)
 
@@ -128,3 +138,30 @@ pod. Negotiation checklist (LEAGUE-OPS.md) pins: dialects (D3), coordinate syste
 arena/hint cap, LLM-move exception (we DECLINE it — our edge is the algorithm), token budget,
 who counts this game. Book p.34: contract is a floor — legal, mutually-agreed upgrades and
 loophole play are encouraged; the lab (D7) is our loophole detector.
+
+## D14. Ed25519 declaration signing (per NotebookLM A7/A9, 2026-07-13)
+
+No staff-distributed key exists. We generate a **team Ed25519 keypair** (`cryptography` lib,
+private key outside the repo); public keys are **exchanged with the partner and locked into the
+signed pre-game declaration** (`"ed25519:base64-signed-blob"` in the declaration schema) before
+play, so the spec record cannot be altered mid-series. The key signs the declaration AND the
+step-0 record (SHA-256 commit-reveal of the hardware record still satisfies computational
+fairness; declaration signing = Ed25519). The **counted-games-so-far declaration goes INSIDE the
+cryptographically signed declaration JSON** (rule 37, A9b — prevents diversity-reward resets and
+counted-game-limit bypass). Audit-caught forgery ⇒ the sub-game is adjudicated
+**`technical_loss` 0/0** in the result JSON; both groups must still report — failing to report a
+caught forgery risks total disqualification (A9a).
+
+---
+
+## Rulings log (NotebookLM, 2026-07-13)
+
+- **A1 hash**: book construction (nonce INSIDE the canonical JSON) is authoritative for league cross-audits; the reference's pipe-append is a "simplified sketch" → D3 hash default flipped to `book`.
+- **A2 scent**: book multiplicative τ(t+1)=max(0,(1−ρ)·τ+Δτ) is the reference standard; the reference subtractive/max-merge dialect is a LEGAL upgrade if exchanged + crypto-locked at Step-0 (rule 23); priority = byte-identical peers.
+- **A3 rules**: cop has 5 barrier placement options (own cell + 4 orthogonal); rules 46/47 (barrier-on-thief and jailed-thief captures) are MANDATORY in league play — implement even vs stock-reference peers (confirms D4).
+- **A4 repos**: an identical engine/SDK package across both repos is allowed; Zero-Trust = separate OS processes, config dirs and no shared state — not independent code (confirms D2).
+- **A5 survival**: STAY/HOLD count toward the thief's 35; the cop's barrier turns do NOT; adjudicated on the thief's OWN valid-step counter.
+- **A6 timeout**: on timeout/crash the surviving peer MUST still run the audit and email the result JSON; result string `technical_loss`, scores 0/0 (confirms D4).
+- **A7 step-0 key**: no staff key — teams use their own Ed25519 keypair; pubkeys exchanged + locked in the signed pre-game declaration → D14.
+- **A8 4-stage**: the compressed flow is compliant — stages 1–3 (Commit/Ack/Reveal) sequential every turn; stage 4 = single end-of-game reveal of all nonces.
+- **A9 forgery + ledger**: (a) audit-caught tampering ⇒ sub-game `technical_loss` 0/0, both groups still report (unreported forgery risks total disqualification); (b) rule 37: the counted-games-so-far count goes INSIDE the signed declaration JSON.

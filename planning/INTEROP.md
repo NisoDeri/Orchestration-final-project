@@ -15,8 +15,9 @@ divergence is a negotiable dialect (D3) and both sides are specified.
 - **Protocol:** MCP over **FastMCP streamable-HTTP**. Each peer runs its **own** FastMCP server (there is no
   central server) named `police-thief-{role}` and acts as a `fastmcp.Client` toward the opponent's server.
 - **URL shape:** `http://<host>:<port>/mcp` — the `/mcp` path is FastMCP's default and is part of the contract
-  (e.g. `http://127.0.0.1:8802/mcp`). League play substitutes the ngrok public URL
-  (`https://<reserved-domain>/mcp`); the URL goes in the declaration's `mcp_servers` block.
+  (e.g. `http://127.0.0.1:8802/mcp`). League play substitutes the public tunnel URL — ngrok reserved domain
+  or Cloudflare named-tunnel path route, both ending in `/mcp` (LEAGUE-OPS §2); the URL goes in the
+  declaration's `mcp_servers` block.
 - **Ports (reference defaults):** thief **8801**, police **8802**. These are private per-peer config
   (`[network] my_port` / `opponent_url`), NOT signed terms — ours are negotiable per game, but publish them
   correctly in `opponent_url` on the other side or nothing connects. The reference preflight-probes its own
@@ -227,8 +228,14 @@ json.dumps(data, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
 
 ### 3.1 Per-step commit — the two dialects (DECISIONS D3)
 
+> **AUTHORITATIVE RULING (NotebookLM 2026-07-13, A1):** the BOOK construction — nonce a key INSIDE the
+> canonical JSON, per the chapter-5 schema — is **authoritative for league cross-audits**; the reference
+> repo's pipe-appended form is a "simplified sketch". Our default is therefore **`book` (dialect B)**.
+> Dialect A remains implemented ONLY for compatibility with stock-reference peers and must be
+> **explicitly negotiated** into the rule-23 lock — never assumed.
+
 Both dialects are implemented in our engine and selected by the pre-series locked agreement. Default:
-`reference`.
+`book` (dialect B, per the A1 ruling above).
 
 **Dialect A — `reference`** (verified: recomputing both sample-run records below reproduces their stored
 commits exactly): the nonce is **pipe-appended AFTER the canonical JSON, outside it**:
@@ -431,6 +438,16 @@ All additive or value-level; an unmodified reference peer/verifier still parses 
 3. **All 4 repo links in the result** — book requires them in the result JSON (reference has them only in the
    declaration). We add a top-level `repos {gid: {cop, thief}}` block to our result file — additive; excluded
    from the mutual signature.
+4. **`technical_loss` endings (NotebookLM A6/A9a, 2026-07-13)** — timeout, crash and audit-caught forgery
+   sub-games carry the result string **`"technical_loss"`** with scores **0/0** in the result JSON —
+   overriding the reference's waiting-peer-wins timeout AND its tamper_forfeit-winner behavior. The audit is
+   still run (best-effort) and the result JSON is still emailed by the surviving peer; both groups must
+   report a caught forgery or risk total disqualification.
+5. **Ed25519-signed declaration + counted-games count (NotebookLM A7/A9b; DECISIONS D14)** — the declaration
+   additionally carries each group's Ed25519 public key and an `"ed25519:base64-signed-blob"` signature over
+   the declaration and step-0 record (no staff key exists; pubkeys are exchanged and locked pre-game), plus
+   the **counted-games-so-far count INSIDE the signed declaration JSON** (rule 37). Additive keys, excluded
+   from the reference `consensus_signature` inputs, so an unmodified reference peer still verifies.
 
 ## 6. Compatibility test plan
 
@@ -489,10 +506,10 @@ the unmodified reference speaks only dialect A / reference scent:
 
 | # | Commit dialect | Scent law | Peer pair | Expected |
 |---|---|---|---|---|
-| M1 | reference (A) | reference (subtractive, max-merge) | ours vs reference | full pass (the league default) |
+| M1 | reference (A) | reference (subtractive, max-merge) | ours vs reference | full pass (stock-reference compat row — dialect A only by explicit negotiation, A1) |
 | M2 | reference (A) | book (multiplicative, additive) | ours vs ours | full pass |
 | M3 | book (B) | reference | ours vs ours | full pass |
-| M4 | book (B) | book | ours vs ours | full pass |
+| M4 | book (B) | book | ours vs ours | full pass (**our default pairing** per NotebookLM A1/A2) |
 | M5 | A vs B mismatch | — | ours vs ours | audit MUST fail every step (proves detection, and why rule-23 locking matters) |
 | M6 | — | reference vs book mismatch | ours vs ours | belief degrades but game legal; scent grids differ → documented evidence for the pre-series lock |
 
@@ -503,12 +520,12 @@ signed config / rule-23 lock. (Numbers from the reference-architecture survey.)
 
 | # | Landmine | Failure if unpinned | Agree on |
 |---|---|---|---|
-| 1 | Commit hash construction: nonce pipe-appended after compact canonical JSON with `ensure_ascii=False` (dialect A) vs book snippet nonce-inside-JSON (dialect B) | every audit step fails → false tamper_forfeit | ONE dialect, in the rule-23 lock (we run both; default A) |
+| 1 | Commit hash construction: nonce pipe-appended after compact canonical JSON with `ensure_ascii=False` (dialect A) vs book nonce-inside-JSON (dialect B — **authoritative per NotebookLM A1, 2026-07-13**) | every audit step fails → false tamper_forfeit | ONE dialect, in the rule-23 lock (we run both; default B, A only for stock-reference peers by explicit negotiation) |
 | 2 | `submit_audit` argument key is `payload`; the other three tools use `message` | audit call rejected by schema validation → no audit | nothing to negotiate — both sides must implement it |
 | 3 | `game_uid` = non-RFC UUID from sha256[:16] of `canonical(terms)|gid1|gid2`, gids sorted | artifacts don't join; grader can't match the two teams' files | copy the derivation byte-for-byte |
 | 4 | Scent law: subtractive decay + max-merge deposit (reference) vs multiplicative + additive (book); falloff rings 0.9/0.6/0.3 Chebyshev, 3-dp rounding, min_center 0.5 | beliefs diverge; a peer may reject "impossible" scent | ONE formula + numeric worked example, SHA-256-locked pre-series (rule 23) |
-| 5 | Survival counting: judged on the thief's OWN `step_number >= max_steps`; HOLD and BARRIER turns count as steps | premature/late `win_claim`, disputed result | whose counter + whether HOLD/BARRIER count as "valid moves" |
-| 6 | Timeout semantics: reference records the WAITING peer as winner and SKIPS the audit; book says technical loss 0/0 | contradictory result reports → both groups get 0 | 0/0 + audit-still-runs (our D4); pin explicitly |
+| 5 | Survival counting: judged on the thief's OWN `step_number >= max_steps`; HOLD and BARRIER turns count as steps | premature/late `win_claim`, disputed result | book default RESOLVED (NotebookLM A5): thief's OWN counter, STAY/HOLD count, cop barrier turns do NOT add — confirm the partner matches |
+| 6 | Timeout semantics: reference records the WAITING peer as winner and SKIPS the audit; book says technical loss 0/0 | contradictory result reports → both groups get 0 | 0/0 + audit-still-runs, result string `technical_loss` (our D4; **NotebookLM A6 ruling**); pin explicitly |
 | 7 | TWO canonical hashers: compact separators for commits/config_sha256/game_uid vs DEFAULT spaced separators for consensus_signature fields | mutual_agreement / declaration signatures never match | use the right hasher per field (§3.4 table) |
 | 8 | Fixed literals & conventions: `"You got me."` / `"(silence)"` / fallback hint; thief moves first; turn token = message possession; duplicate deliveries possible, no dedup | deadlock (both wait) or double-move desync | keep all reference conventions verbatim |
 | 9 | Terms must be EXACTLY equal, types included; identity is unsigned; negotiation is out-of-band | CryptoError at handshake, no game | exchange a filled game.json file, not a screenshot; diff bytes before starting |

@@ -30,3 +30,8 @@ reference/
 police_thief_p2p.pdf
 *.pdf
 .venv/
+secrets/
+logs/
+.coverage
+__pycache__/
+*.pyc

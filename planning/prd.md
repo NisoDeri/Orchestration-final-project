@@ -48,7 +48,7 @@ SHA-256 Commit-Reveal + mutual audit, not authority.
 - **FR-R1** Single Orchestrator/SDK entry point to all subsystems (rule 3); watchdog with 60s freeze threshold + controlled log extraction on crash (rule 7).
 - **FR-R2** 3-gate Gatekeeper — daily quota, token-bucket, DOS circuit-breaker — in front of Gmail and the LLM; 429 backoff (rules 28–29; Table 19; D5).
 - **FR-R3** Live UI shows local truth only, never the objective board (rules 8–9); belief heatmap rendered (mandatory screenshot).
-- **FR-R4** Public exposure via paid ngrok + reserved domains, one per role, with preflight checks (rule 10; D5).
+- **FR-R4** Public exposure via a stable-hostname tunnel — provider decided at Stage 5 per D5 (fresh ngrok account with reserved domains, or free named Cloudflare tunnel; the old paid ngrok account was deleted) — with preflight checks (rule 10; D5).
 - **FR-R5** LLM strictly at the verbal edge (trash-talk + incoming-hint interpretation) on local Ollama, template fallback, zero-token full series possible (rules 25–27; Table 21; D8).
 
 ### Reporting & league (cross-cutting, serves Integrity + Architecture)

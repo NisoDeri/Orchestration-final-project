@@ -3,12 +3,17 @@
 Group **nis-yar1** (Nissim Deri, Yarden Tziar) · Orchestration of AI Agents (Dr. Yoram Segal)
 Conforms to `FINAL_PROJECT_BRIEF.md` (book v3.0.0, Appendix E rules 1–55, Appendix F parameters),
 `planning/reference_map.md` (wire protocol + interop landmines §10), and `planning/DECISIONS.md`
-(D1–D13). Where this doc cites a "rule N" it means Appendix E; "landmine N" means reference_map §10.
+(D1–D14, incl. the NotebookLM rulings log of 2026-07-13, cited below as A1–A9). Where this doc
+cites a "rule N" it means Appendix E; "landmine N" means reference_map §10.
 
 Grading reminder: the league needs **≥2 counted games vs different groups** to pass, **≤10 counted
 games** total, **diversity reward 10 per win vs a new opponent**, **one counted game per opponent**
 (warm-ups free and encouraged) — brief §10 Table 18 + §12. Mutual agreement is the anti-fraud
 backbone: both groups email identical result JSONs separately or **both score 0** (rules 34–35).
+
+**Pod draft league protocol:** the pod has published a draft league protocol
+(github.com/Imreec/copthief-league-protocol). Full analysis in `LEAGUE-PROTOCOL-REVIEW.md`;
+reconcile its terms with this checklist before onboarding any pod opponent.
 
 ---
 
@@ -21,10 +26,14 @@ in fill-in form). Nothing is played until every box is checked by BOTH sides.
 
 - [ ] Group IDs (8-char, no spaces) + group names + full member lists.
 - [ ] Both repo URLs per side (cop + thief = 4 links total; needed later in the result JSON, rule 49).
-- [ ] MCP URLs per role (public tunnel URLs, path `/mcp`). Ours: two reserved ngrok domains, one
-      per role (D5).
+- [ ] MCP URLs per role (public tunnel URLs, path `/mcp`). Ours: per D5 — provider decided at
+      Stage 5 (fresh ngrok account or Cloudflare named tunnel; see §2 step 4).
 - [ ] LLM model each side runs (goes in step-0 + declaration; ours: local Ollama qwen2.5:7b, D8).
 - [ ] Current GitHub commit hash each side will play (rule 24/53; re-exchanged before every game).
+- [ ] **Ed25519 public keys exchanged both ways + declaration signatures verified** (A7, D14):
+      no staff-distributed key exists — each team signs the pre-game declaration and step-0 record
+      with its own keypair (`ed25519:base64-signed-blob`); pubkeys are locked into the signed
+      declaration BEFORE play so the spec record cannot be altered mid-series.
 
 ### 1.2 Dialect matrix (D3 — lock BOTH axes before the series)
 
@@ -36,7 +45,11 @@ signed shared config. Pick one value per axis with the partner and record it:
 | Commit hash construction | `sha256(canonical_json(payload) + "\|" + nonce)` — nonce pipe-appended AFTER compact canonical JSON, `ensure_ascii=False` | `sha256(canonical_json({...payload, nonce}))` — nonce a key INSIDE the JSON | ☐ A ☐ B |
 | Scent law | subtractive decay `max(0, τ−0.10)` + max-merge deposit | multiplicative `τ(t+1)=max(0,(1−ρ)·τ+Δτ)` + additive deposit | ☐ A ☐ B |
 
-Defaults per D3: hash = `reference`; scent = whatever the partner runs.
+Defaults per D3 as updated by the 2026-07-13 rulings: hash = **`book`** (A1 — the book's
+nonce-inside-JSON construction is authoritative for league cross-audits; dialect A only for
+stock-reference partners, explicitly negotiated); scent = **`book`** multiplicative (A2 — the
+reference dialect is a LEGAL mutually-agreed upgrade if exchanged + crypto-locked at Step-0;
+priority = both peers byte-identical).
 
 **Rule-23 lock procedure (mandatory, per series):**
 1. Exchange the full scent formula TEXT: emission profile (5×5 field, center 0.9, falloff rings —
@@ -74,15 +87,20 @@ Negotiation is out-of-band; `verify_peer` requires EXACT dict equality of terms,
 - [ ] Timeouts: per-request 30 s, watchdog freeze 60 s (both negotiable), turn timeout — agree the
       number explicitly; the reference's private 180 s silently overrides the shared 30/60
       (reference_map §6 trap), so state the effective turn deadline out loud.
-- [ ] Survival counting semantics (landmine 5): whose counter (thief's own `step_number`), and
-      whether HOLD/BARRIER count toward the 35 "valid moves". Reference counts everything; lock one
-      interpretation.
-- [ ] Barrier semantics (landmine 10): 5 placement options (own cell + 4 adjacent, per book/D4);
-      **barrier-on-thief = capture** (rule 46); **jailed thief = capture** (rule 47). Confirm the
-      partner's engine implements all three — the stock reference does NOT (gaps 1–3).
+- [ ] Survival counting semantics (landmine 5) — **book default RESOLVED per A5**: adjudicated
+      on the thief's OWN valid-step counter; STAY/HOLD count toward the 35; the cop's barrier
+      turns do NOT add to the thief's count. Confirm the partner follows this; lock it.
+- [ ] Barrier semantics (landmine 10): 5 placement options (own cell + 4 orthogonal, per book/D4;
+      **confirmed by A3**); **barrier-on-thief = capture** (rule 46); **jailed thief = capture**
+      (rule 47). **A3: rules 46/47 are MANDATORY in league play** (marked mandatory in the master
+      parameter table) — our engine implements them even when the partner's reference-based peer
+      lacks them. The stock reference implements NONE of the three (gaps 1–3): **surface this
+      EARLY — it is the likeliest dispute of the whole onboarding.**
 - [ ] Timeout/crash semantics (landmine 6): **technical loss 0/0 to the crashed/frozen side's game
-      — never waiting-peer-wins — with the audit still run and reported** (D4; stock reference
-      awards the waiter a win and skips the audit; must be agreed away).
+      — never waiting-peer-wins — with the audit still run and reported** (D4; **confirmed by A6**:
+      the surviving peer MUST still run the audit and email the result JSON, result string
+      `technical_loss`; stock reference awards the waiter a win and skips the audit; must be
+      agreed away).
 
 ### 1.4 Policy declarations
 
@@ -91,7 +109,10 @@ Negotiation is out-of-band; `verify_peer` requires EXACT dict equality of terms,
       Python on both sides; local legality enforcement stays mandatory regardless.
 - [ ] Counted vs warm-up status of the upcoming session, stated explicitly.
 - [ ] **Truthful counted-game counts** (rule 36): each side declares how many counted games it has
-      already played and against whom. False declaration = disqualification.
+      already played and against whom. False declaration = disqualification. **Per rule 37 / A9b
+      the counted-games-so-far count is written INSIDE the cryptographically signed pre-game
+      declaration JSON** — not just stated in chat (prevents diversity-reward resets / limit
+      bypass).
 - [ ] Both sides confirm they will **email the result JSON separately and independently** to
       `rmisegal+uoh26finalgame@gmail.com` — JSON attachment, never free text (rules 32–35; missing
       or contradictory report = 0 to BOTH groups).
@@ -114,9 +135,15 @@ Run this in order for every game (warm-up or counted). Target: T-30 minutes befo
    proceed only on exact match. A terms mismatch will hard-fail the handshake mid-slot otherwise.
 3. **Commit the config** to the repo on the game branch; note the commit hash — it must appear in
    step-0 and in the result JSON (rule 24/53).
-4. **Start tunnels** — one command per role on our reserved domains (D5):
-   - `ngrok http --url=<cop-reserved-domain> 8802` (police peer)
-   - `ngrok http --url=<thief-reserved-domain> 8801` (thief peer)
+4. **Start tunnels** — the paid ngrok account was DELETED; two documented paths, decision
+   deferred to Stage 5 (~Jul 27), keep both runnable:
+   - **Path A — fresh ngrok account** (open when league week nears), one command per role on
+     reserved domains: `ngrok http --url=<cop-domain> 8802` (police) and
+     `ngrok http --url=<thief-domain> 8801` (thief).
+   - **Path B — free named Cloudflare tunnel** (stable hostname, no paid plan — field-proven by
+     another team): one tunnel, path-routed `https://<host>/cop/mcp` → localhost:8802 and
+     `https://<host>/thief/mcp` → localhost:8801 (URLs still end in `/mcp`, so the FastMCP
+     contract holds).
 5. **Preflight checks** (all must pass before telling the partner we're ready):
    - [ ] Local ports 8801/8802 free (the MCP server does a port-free probe, but check first).
    - [ ] Tunnel reachable **from outside** (phone on cellular, or partner pings `/mcp`).
@@ -160,7 +187,7 @@ expecting the clock to stop — the deadline resets only on received messages.
 connect/negotiate, 10 s for audit, 2 s for control; duplicates are possible and receiver queues
 have no dedup (reference_map §3). Our deadline resets on every received message, so a
 slow-but-alive opponent never times us out. On a tunnel flap: do NOT restart the peer process —
-restart only the ngrok tunnel (reserved domain = same URL, sessions resume). If the flap exceeds
+restart only the tunnel (named/reserved hostname = same URL, sessions resume). If the flap exceeds
 the watchdog threshold, treat it as a crash (below). Never blind-retry past the agreed timeout;
 message the partner in parallel.
 
@@ -186,7 +213,8 @@ last received message), message them, and propose the honest 0/0 + audit. Do not
    - Run our replay verifier on OUR log → "Verified OK" (screenshot on counted games — mandatory
      README artifact).
    - Re-hash THEIR revealed records against their committed hashes; they do the same to ours.
-     Any mismatch = provable forgery = 0 for the cheater regardless of the board result.
+     Any mismatch = provable forgery = sub-game adjudicated `technical_loss` 0/0 regardless of
+     the board result (A9a); both groups must still report it.
    - Verify their declared `github_commit` exists in their repo and matches what was exchanged
      pre-game; they verify ours.
 2. **Agree the result** explicitly (per sub-game scores + cumulative + winner + tokens). The mutual
@@ -214,7 +242,7 @@ last received message), message them, and propose the honest 0/0 + audit. Do not
 > Hi! We're group **nis-yar1** (Nissim Deri + Yarden Tziar) from Dr. Segal's final-project league.
 > We'd like to schedule a series against you: one warm-up first (free, per the book), then one
 > counted game if both sides are stable. We run reference-compatible wire protocol (4 MCP tools,
-> schema 1.1) over paid ngrok reserved domains, so connectivity on our side is solid.
+> schema 1.1) over a stable named public tunnel, so connectivity on our side is solid.
 > Which days between Aug 3–9 work for you? A warm-up slot takes ~1 hour, counted ~1.5 hours
 > including the mutual audit. Before playing we'll send a short technical negotiation form to
 > lock parameters + the rule-23 scent hash. Looking forward!
@@ -222,7 +250,7 @@ last received message), message them, and propose the honest 0/0 + audit. Do not
 **HE:**
 > היי! אנחנו קבוצת **nis-yar1** (ניסים דרעי + ירדן צייר) מהליגה של הפרויקט הסופי של ד"ר סגל.
 > נשמח לתאם מולכם סדרה: קודם משחק חימום (חופשי, לפי הספר), ואז משחק נספר אם שני הצדדים יציבים.
-> אנחנו רצים על פרוטוקול תואם-רפרנס (4 כלי MCP, סכמה 1.1) מעל דומיינים קבועים של ngrok בתשלום,
+> אנחנו רצים על פרוטוקול תואם-רפרנס (4 כלי MCP, סכמה 1.1) מעל טאנל ציבורי עם שם מארח קבוע,
 > כך שהקישוריות אצלנו יציבה. אילו ימים בין 3–9 באוגוסט מתאימים לכם? חימום לוקח בערך שעה,
 > משחק נספר בערך שעה וחצי כולל הביקורת ההדדית. לפני המשחק נשלח טופס תיאום טכני קצר לנעילת
 > הפרמטרים וה-hash של חוק הריח (כלל 23). מחכים!
@@ -241,9 +269,11 @@ last received message), message them, and propose the honest 0/0 + audit. Do not
 >
 > DIALECTS (pick one per line; rule 23 lock follows)
 > 6. Commit hash construction: [ ] reference (nonce pipe-appended after compact canonical JSON,
->    ensure_ascii=False) [ ] book (nonce inside JSON)
+>    ensure_ascii=False) [ ] book (nonce inside JSON) — book is the authoritative construction
+>    for cross-audits (NotebookLM 13/7); nis-yar1 default: book
 > 7. Scent law: [ ] reference (subtractive decay max(0,τ−0.10), max-merge deposit)
->    [ ] book (τ(t+1)=max(0,(1−ρ)τ+Δτ), additive deposit)
+>    [ ] book (τ(t+1)=max(0,(1−ρ)τ+Δτ), additive deposit) — nis-yar1 default: book; reference is
+>    legal by mutual locked agreement (NotebookLM 13/7)
 > 8. Scent details: falloff rings ___ (default Chebyshev 0.9/0.6/0.3, 3-dp), min_center_intensity
 >    ___ (default 0.5), decay timing: message-driven [ ] yes
 > 9. Rule-23 lock: we exchange formula text + numeric worked example (deposit at (3,3) + one decay
@@ -256,7 +286,8 @@ last received message), message them, and propose the honest 0/0 + audit. Do not
 > 13. num_games: 6 (fixed) | token budget/series: ___ (default 200,000)
 > 14. Timeouts: per-request ___ s (default 30) | watchdog ___ s (default 60) | effective turn
 >     timeout ___ s (state explicitly — private defaults differ)
-> 15. Survival counting: thief's own step counter; HOLD/BARRIER count as moves? [ ] yes [ ] no
+> 15. Survival counting (book default per NotebookLM 13/7): thief's OWN step counter; thief
+>     STAY/HOLD count toward the 35; cop barrier turns do NOT add. Confirmed? [ ] yes [ ] deviation: ___
 > 16. Barrier semantics confirmed by BOTH engines: 5 placement options (own cell + 4 adjacent)
 >     [ ] · barrier-on-thief = capture [ ] · jailed thief = capture [ ]
 > 17. Timeout/crash = technical loss 0/0 (never waiting-peer-wins), audit still runs: [ ] agreed
@@ -268,6 +299,9 @@ last received message), message them, and propose the honest 0/0 + audit. Do not
 > 21. Both groups will email result JSON separately (attachment) to
 >     rmisegal+uoh26finalgame@gmail.com: [ ] agreed
 > 22. config_<game_id>_g<NN>.json sha256 exchange before start: [ ] agreed
+> 23. Ed25519 public keys exchanged both ways; declaration + step-0 signatures verified
+>     (ed25519:base64-signed-blob; no staff key exists): [ ] done — our pubkey: ___ yours: ___
+> 24. Counted-games-so-far count written INSIDE the signed declaration JSON (rule 37): [ ] agreed
 
 **HE:**
 > **שוטרים וגנבים P2P — טופס תיאום לפני סדרה** (שתי הקבוצות ממלאות; משחקים רק בהתאמה מלאה)
@@ -281,9 +315,11 @@ last received message), message them, and propose the honest 0/0 + audit. Do not
 >
 > דיאלקטים (בחרו אחד בכל שורה; נעילת כלל 23 בהמשך)
 > 6. בניית hash ה-commit: [ ] רפרנס (nonce מחובר עם | אחרי JSON קנוני קומפקטי, ensure_ascii=False)
->    [ ] ספר (nonce כשדה בתוך ה-JSON)
+>    [ ] ספר (nonce כשדה בתוך ה-JSON) — גרסת הספר היא הסמכותית לביקורות צולבות (NotebookLM 13/7);
+>    ברירת המחדל של nis-yar1: ספר
 > 7. חוק הריח: [ ] רפרנס (דעיכה חיסורית max(0,τ−0.10), מיזוג-מקסימום)
->    [ ] ספר (τ(t+1)=max(0,(1−ρ)τ+Δτ), הפקדה חיבורית)
+>    [ ] ספר (τ(t+1)=max(0,(1−ρ)τ+Δτ), הפקדה חיבורית) — ברירת המחדל של nis-yar1: ספר; רפרנס
+>    חוקי בהסכמה הדדית נעולה (NotebookLM 13/7)
 > 8. פרטי ריח: טבעות דעיכה ___ (ברירת מחדל צ'בישב 0.9/0.6/0.3, עיגול 3 ספרות),
 >    min_center_intensity ___ (ברירת מחדל 0.5), דעיכה מונעת-הודעות: [ ] כן
 > 9. נעילת כלל 23: מחליפים נוסח נוסחה + דוגמה מספרית (הפקדה ב-(3,3) + טיק דעיכה אחד, רשת 5×5
@@ -296,7 +332,8 @@ last received message), message them, and propose the honest 0/0 + audit. Do not
 > 13. num_games: 6 (קבוע) | תקציב טוקנים לסדרה: ___ (200,000)
 > 14. טיימאאוטים: לבקשה ___ שנ' (30) | watchdog ___ שנ' (60) | טיימאאוט תור אפקטיבי ___ שנ'
 >     (לציין מפורשות — ברירות המחדל הפרטיות שונות)
-> 15. ספירת הישרדות: מונה הצעדים של הגנב; האם HOLD/מחסום נספרים כצעדים? [ ] כן [ ] לא
+> 15. ספירת הישרדות (ברירת מחדל הספר לפי NotebookLM 13/7): המונה של הגנב עצמו; STAY/HOLD של הגנב
+>     נספרים אל תוך ה-35; תורות מחסום של השוטר לא מוסיפים. מאושר? [ ] כן [ ] חריגה: ___
 > 16. סמנטיקת מחסומים מאושרת בשני המנועים: 5 אפשרויות הנחה (התא העצמי + 4 שכנים) [ ] ·
 >     מחסום-על-גנב = לכידה [ ] · גנב כלוא = לכידה [ ]
 > 17. טיימאאוט/קריסה = הפסד טכני 0/0 (אף פעם לא ניצחון לממתין), הביקורת עדיין רצה: [ ] מוסכם
@@ -308,6 +345,9 @@ last received message), message them, and propose the honest 0/0 + audit. Do not
 > 21. שתי הקבוצות ישלחו את קובץ התוצאה בנפרד (כקובץ מצורף) אל
 >     rmisegal+uoh26finalgame@gmail.com: [ ] מוסכם
 > 22. החלפת sha256 של config_<game_id>_g<NN>.json לפני ההתחלה: [ ] מוסכם
+> 23. הוחלפו מפתחות Ed25519 ציבוריים בשני הכיוונים; אומתו חתימות ההצהרה ורשומת step-0
+>     (ed25519:base64-signed-blob; אין מפתח מהסגל): [ ] בוצע — המפתח שלנו: ___ שלכם: ___
+> 24. ספירת המשחקים-הנספרים-עד-כה נכתבת בתוך ה-JSON החתום של ההצהרה (כלל 37): [ ] מוסכם
 
 ### (c) Game-day coordination
 

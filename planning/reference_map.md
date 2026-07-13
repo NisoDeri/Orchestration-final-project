@@ -398,6 +398,6 @@ Traps: `_translate_shared` wires only a SUBSET of game.json into runtime (num_ga
 ## 11. Team assets to leverage (build-recommendation context)
 
 - **HW6**: refereed 5×5 cops-and-robbers — FastMCP experience, BFS pursuit/evasion tactics (seed for real brains), **working Gmail OAuth send** (fixes gap #20), web replay UI (creativity extension over the Tk replay).
-- **Paid ngrok, 3 reserved domains** — rule 10 tunneling solved with stable public URLs for the declaration's `mcp_servers` block.
+- **Stable-hostname tunneling know-how** — rule 10 solved with stable public URLs for the declaration's `mcp_servers` block; provider decided at Stage 5 (the old paid ngrok account was deleted: fresh ngrok reserved domains or a free named Cloudflare tunnel, D5 / LEAGUE-OPS §2).
 - **Local Ollama** (qwen2.5:7b/14b/0.5b, aya-expanse:8b, RTX 3500 Ada 12GB) — `[trash_talk] provider="ollama"` at zero API tokens; strong computational-fairness story on a laptop.
 - **Zero-API-key constraint** — matches the reference's `claude_cli` design (env-stripped subscription billing) and the template/ollama zero-token modes.

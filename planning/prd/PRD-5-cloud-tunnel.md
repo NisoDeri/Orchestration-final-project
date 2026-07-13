@@ -7,8 +7,10 @@ here on this is a real distributed system: latency, disconnects, and duplicate d
 normal, not exceptional.
 
 ## In scope
-- ngrok integration on our **paid plan with reserved domains** — one stable domain per role
-  (D5; reference gap #18: the reference has no tunneling at all).
+- Tunnel integration with **stable hostnames, one per role** — provider decided at this stage per
+  D5: a fresh ngrok account with reserved domains, or a free named Cloudflare tunnel (the old
+  paid ngrok account was deleted; both paths in LEAGUE-OPS §2 step 4)
+  (reference gap #18: the reference has no tunneling at all).
 - Preflight checks, remote-play runbook, resilience hardening of the PRD-2 transport under real
   WAN conditions.
 - Public URLs wired into config (`[network] opponent_url`, `mcp_servers` block of the
@@ -57,8 +59,9 @@ PRD-2 (transport + FSM + watchdog), PRD-4 (real payloads worth carrying; can sta
 once PRD-2 is stable — D12 schedules this in W3).
 
 ## Risks
-- ngrok free-tier behavior differs from paid (interstitial pages break MCP) → we are on the paid
-  plan with reserved domains; verified in FR-5.1 preflight.
+- ngrok free-tier behavior differs from paid (interstitial pages break MCP) → the old paid
+  account was deleted: if we pick ngrok at Stage 5 we open a fresh account with reserved domains,
+  otherwise use the free named Cloudflare tunnel path (D5); verified in FR-5.1 preflight either way.
 - Partner behind restrictive NAT/firewall with a different tunnel tool (Localtonet) → only OUR
   side's exposure is our duty; client side just needs outbound HTTPS.
 - Public endpoint abuse (strangers calling our tools) → tools are enqueue-only with local

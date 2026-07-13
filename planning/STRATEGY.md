@@ -1,6 +1,6 @@
 # STRATEGY — The Graded Core (Belief v2 + Brains + Deception + Lab)
 
-Group **nis-yar1** (Nissim Deri, Yarden Tziar) · Final project, Dr. Yoram Segal · Status: ACCEPTED design, conforms to DECISIONS.md D1–D13 (2026-07-13).
+Group **nis-yar1** (Nissim Deri, Yarden Tziar) · Final project, Dr. Yoram Segal · Status: ACCEPTED design, conforms to DECISIONS.md D1–D14 incl. the 2026-07-13 NotebookLM rulings log (A1–A9).
 
 **Scope.** Deep design of the `[strategy]` extension point — the part the book grades (brief §9, ref-map §7 gap 22: *"both brains are baseline heuristics. This is where the grade is."*). Every mechanism binds to the reference APIs (ref-map §4.1) so it drops into implementation unchanged.
 
@@ -288,7 +288,7 @@ A missed pounce costs exactly 1 tempo and telegraphs our read; with `p ≈ 1` (r
 
 ## 4. Thief brain [THIEF]
 
-Replaces *(ref-map §2.2)* "maximize distance from `belief.most_likely()`, tiebreak unvisited." Objective: **survive 35 valid moves** (brief §4 scoring: survival 10 vs capture-concession 5; the counting semantics — whose counter, HOLD/BARRIER counted — are a locked negotiation term, ref-map §10 landmine 5).
+Replaces *(ref-map §2.2)* "maximize distance from `belief.most_likely()`, tiebreak unvisited." Objective: **survive 35 valid moves** (brief §4 scoring: survival 10 vs capture-concession 5). Counting semantics **RESOLVED (NotebookLM A5, 2026-07-13)**: STAY/HOLD are valid moves and count toward the thief's OWN 35-counter; the cop's barrier turns do NOT add to it; survival is adjudicated on the thief's own valid-step counter — still worth CONFIRMING per-series at onboarding (ref-map §10 landmine 5), but the book default is now known.
 
 ### 4.1 Composite move score
 
@@ -341,7 +341,7 @@ Barriers are truthfully declared the moment they're placed *(rule 14 — quote: 
 
 ### 4.5 Endgame clock
 
-`moves_left = max_steps − state.step_number` *(OwnGameState counter, ref-map §2.1)*. When `moves_left ≤ endgame_plies` (default 8): full alternating minimax on the exact state (positions known §1.2; else over belief top-k), value = survive-yes/no, thief maximizes the worst case. No leak/mobility aesthetics — only moves whose entire game subtree survives. When `T[y, here, COP] > moves_left` already holds, prefer STAY/oscillation in the safest 2-cell — zero new risk, run out the clock.
+`moves_left = max_steps − state.step_number` *(OwnGameState counter, ref-map §2.1)*. The counter semantics are settled per A5: our own STAY/HOLD increment it (run-out-the-clock oscillation is safe and counts), the cop's barrier turns do not touch it, and adjudication is on OUR counter — no shared-turn-count ambiguity. When `moves_left ≤ endgame_plies` (default 8): full alternating minimax on the exact state (positions known §1.2; else over belief top-k), value = survive-yes/no, thief maximizes the worst case. No leak/mobility aesthetics — only moves whose entire game subtree survives. When `T[y, here, COP] > moves_left` already holds, prefer STAY/oscillation in the safest 2-cell — zero new risk, run out the clock.
 
 ---
 
@@ -424,7 +424,7 @@ Zero hardcoding (course gate; brief §10 "Config rules"). **Shared** keys live i
 
 | Key | Default | Scope | Used in |
 |---|---|---|---|
-| `pheromones.dialect` (+ ρ, E0, 5×5, clamp/rounding lock) | partner's / `reference` | **shared** (rule 23 lock, D3) | §2.2 |
+| `pheromones.dialect` (+ ρ, E0, 5×5, clamp/rounding lock) | `book` (A2 ruling; `reference` by locked agreement) | **shared** (rule 23 lock, D3) | §2.2 |
 | `belief.impl` | `"v2"` | private | §2 (ablation) |
 | `belief.sigma_obs` | 0.02 | private | §2.4 |
 | `belief.zero_scent_weight` (λ_zero) | 2.0 | private | §2.4 |

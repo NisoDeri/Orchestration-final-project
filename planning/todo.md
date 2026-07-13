@@ -1,8 +1,8 @@
 # TODO — Final Project: Distributed Cops-and-Robbers over P2P (group nis-yar1)
 
-**Task count: 617** (course band 500–1000; target band 600–800 met). Per stage: S0 56 · S1 96 · S2 86 · S3 57 · S4 90 · S5 24 · S6 65 · S7 71 · S8 39 · S9 33.
+**Task count: 647** (was 617; +11 Stage-6 addendum tasks from the 2026-07-13 NotebookLM rulings; course band 500–1000; target band 600–800 met). Per stage: S0 56 · S1 96 · S2 86 · S3 57 · S4 90 · S5 24 · S6 76 · S7 71 · S8 39 · S9 52.
 Format: `- [ ] T<stage>.<seq> <task>`. Stages 1–7 match the seven PRDs / the brief §14 roadmap; Stage 0 = workshop setup, Stage 8 = league operations, Stage 9 = submission.
-Every task conforms to `FINAL_PROJECT_BRIEF.md`, `planning/reference_map.md`, and `planning/DECISIONS.md` (D1–D13). One commit-sized action per task. Course gates apply to every implementation task: file ≤150 lines, ruff (E,F,W,I,N,UP,B,C4,SIM) clean, config-driven (zero hardcoded params), tests use injected fakes (no network/model in CI).
+Every task conforms to `FINAL_PROJECT_BRIEF.md`, `planning/reference_map.md`, and `planning/DECISIONS.md` (D1–D14). One commit-sized action per task. Course gates apply to every implementation task: file ≤150 lines, ruff (E,F,W,I,N,UP,B,C4,SIM) clean, config-driven (zero hardcoded params), tests use injected fakes (no network/model in CI).
 
 ---
 
@@ -34,7 +34,7 @@ Every task conforms to `FINAL_PROJECT_BRIEF.md`, `planning/reference_map.md`, an
 - [ ] T0.24 create tests/ mirror tree with per-package conftest.py
 - [ ] T0.25 write shared/version.py exposing `__version__` + code_version string for step-0
 - [ ] T0.26 write docs/INITIAL.md: mission paragraph + the four grading axes (Coordination/Adaptation/Integrity/Architecture)
-- [ ] T0.27 write docs/prd/PRD-MASTER.md: scope, 7-stage roadmap, D1–D13 cross-references
+- [ ] T0.27 write docs/prd/PRD-MASTER.md: scope, 7-stage roadmap, D1–D14 cross-references
 - [ ] T0.28 write docs/prd/PRD-1 … PRD-7 stubs, one per roadmap stage (brief §14), each citing its book chapter
 - [ ] T0.29 write docs/PLAN.md mapping stages onto the D12 weekly timeline (W1–W4 + buffer)
 - [ ] T0.30 cross-link DECISIONS D-ids from every PRD stub (traceability)
@@ -409,7 +409,7 @@ Every task conforms to `FINAL_PROJECT_BRIEF.md`, `planning/reference_map.md`, an
 ## Stage 5 — Cloud + Tunnel (PRD-5, brief §14.5: ngrok, remote machines)
 
 - [ ] T5.1 create feature branch `feat/stage5-tunnel`
-- [ ] T5.2 implement infra/tunnel.py: ngrok launcher/attach using the paid plan + one reserved domain per role, all from config (D5, rule 10)
+- [ ] T5.2 implement infra/tunnel.py: launcher/attach for the D5 provider decision (fresh ngrok account + one reserved domain per role, or free named Cloudflare tunnel with `/cop/mcp`+`/thief/mcp` path routes — old paid ngrok account deleted), all from config (D5, rule 10)
 - [ ] T5.3 add config keys network.public_url + tunnel.enabled + tunnel.domain with validation
 - [ ] T5.4 implement tunnel preflight: resolve the public URL and probe reachability before negotiating (D5)
 - [ ] T5.5 keep the preflight off the 4-tool MCP contract (plain HTTP reachability probe — no fifth tool)
@@ -437,8 +437,8 @@ Every task conforms to `FINAL_PROJECT_BRIEF.md`, `planning/reference_map.md`, an
 
 - [ ] T6.1 create feature branch `feat/stage6-crypto`
 - [ ] T6.2 implement domain/crypto.py canonical_json (sort_keys=True, ensure_ascii=False, separators (",",":"))
-- [ ] T6.3 implement CommitReveal.commit_of reference dialect: sha256(canonical_json(payload) + "|" + nonce) (D3 default)
-- [ ] T6.4 implement the book dialect: sha256(canonical_json({...payload, nonce})) selected by signed config key crypto.dialect (D3)
+- [ ] T6.3 implement CommitReveal.commit_of reference dialect: sha256(canonical_json(payload) + "|" + nonce) (stock-reference compat, D3)
+- [ ] T6.4 implement the book dialect: sha256(canonical_json({...payload, nonce})) selected by signed config key crypto.dialect (D3 default per NotebookLM A1 — see T6.75)
 - [ ] T6.5 implement seal(payload) → {nonce, commit} with secrets.token_hex(NONCE_BYTES) (never random)
 - [ ] T6.6 implement verify() using secrets.compare_digest (fixes the reference plain != )
 - [ ] T6.7 implement audit_records(records) → {passed, verified_steps, failed_steps[]}
@@ -477,7 +477,7 @@ Every task conforms to `FINAL_PROJECT_BRIEF.md`, `planning/reference_map.md`, an
 - [ ] T6.40 snapshot test: ack_mode off — wire bytes identical to the reference dialect (regression guard)
 - [ ] T6.41 leak test: no nonce appears in any pre-audit outbound message (rule 18 — nonce secret until final audit)
 - [ ] T6.42 implement peer/summary.py finish(): exchange AuditPayloads and run audit_records on the opponent records
-- [ ] T6.43 implement tamper_forfeit: any hash mismatch → cheater scored 0 regardless of board result (rule 19)
+- [ ] T6.43 implement forgery adjudication: any hash mismatch → sub-game `technical_loss` 0/0 regardless of board result (rule 19; A9a — supersedes the reference's tamper_forfeit-winner; see T6.73)
 - [ ] T6.44 run the audit ALSO on timeout/stopped endings, best-effort (fixes the reference skip; D4)
 - [ ] T6.45 implement the truthful capture-claim response path: answer computed by rules.is_captured from local state, never by the brain (rule 21)
 - [ ] T6.46 test: a forged record in the opponent audit → tamper_forfeit, cheater 0
@@ -500,6 +500,20 @@ Every task conforms to `FINAL_PROJECT_BRIEF.md`, `planning/reference_map.md`, an
 - [ ] T6.63 map each of the 10 interop landmines (map §10) to its config key + default in docs/INTEROP.md
 - [ ] T6.64 stage-6 verify: ruff, line budget, pytest ≥85%
 - [ ] T6.65 merge `feat/stage6-crypto` after CI green
+
+### Stage 6 addendum — rulings 2026-07-13 (NotebookLM A1/A5/A6/A7/A9; DECISIONS D14, PRD-6 FR-6.10–6.12)
+
+- [ ] T6.66 add `cryptography` runtime dependency via `uv add` (Ed25519 primitives, D14)
+- [ ] T6.67 implement domain/ed25519.py: keygen (private key persisted OUTSIDE the repo, .gitignored path from config), sign, verify, "ed25519:base64" pubkey + signed-blob encoding (A7)
+- [ ] T6.68 test: Ed25519 sign→verify round-trip; tampered blob and wrong pubkey both fail verification
+- [ ] T6.69 implement declaration + step-0 signing with the team Ed25519 key: `"ed25519:base64-signed-blob"` field per the declaration schema, additive so a stock reference peer still parses (A7, FR-6.10)
+- [ ] T6.70 implement partner-pubkey exchange in negotiation + lock both pubkeys into the signed pre-game declaration; verify the partner's declaration signature before play (A7)
+- [ ] T6.71 test: negotiation refuses to start when the partner's declaration signature fails to verify against the declared pubkey (A7)
+- [ ] T6.72 add the counted-games-so-far field to the declaration builder INSIDE the signed JSON (rule 37, A9b) + receipt-side validation that it is present and a non-negative integer
+- [ ] T6.73 implement the technical_loss result path: timeout/crash/forgery endings emit result string "technical_loss" with scores 0/0, audit still run best-effort + result JSON still emailed (A6, A9a, FR-6.12)
+- [ ] T6.74 test: audit-caught forgery ⇒ sub-game result "technical_loss" 0/0 in the result JSON and the report is still emitted (A9a)
+- [ ] T6.75 flip the crypto.dialect default to `book` (nonce inside canonical JSON, A1/D3): default-config seal reproduces the dialect-B golden vector; `reference` selectable only by explicit negotiated config (FR-6.11)
+- [ ] T6.76 test: survival-counter semantics per A5 — thief STAY/HOLD increment the thief's own 35-counter, cop barrier turns do NOT, adjudication on the thief's OWN counter
 
 ## Stage 7 — Reporting + Visualization (PRD-7, brief §14.7: Gmail, Gatekeeper, artifacts, GUI, replay)
 
@@ -652,3 +666,25 @@ Every task conforms to `FINAL_PROJECT_BRIEF.md`, `planning/reference_map.md`, an
 - [ ] T9.31 push the final workshop-repo state; archive the branch history
 - [ ] T9.32 back up all league artifacts + report emails to offline storage
 - [ ] T9.33 freeze post-submission: no pushes after the tag except via the documented hotfix policy
+
+## Stage 9 addendum — submission-guidelines deltas (software_submission_guidelines-V3.pdf audit, 2026-07-13)
+
+- [ ] T9.34 create docs/PROMPTS.md prompt book in both deliverable repos — log every significant agent prompt from now on (guidelines §8.3, HARD)
+- [ ] T9.35 release script maps planning/ -> mandated names: docs/PRD.md, docs/PLAN.md, docs/TODO.md, docs/PRD_<mechanism>.md per stage (HARD)
+- [ ] T9.36 deliverable repos: commit the full docs/ suite BEFORE the first src commit (docs-approved-before-code auditable in git history, §2.5 HARD)
+- [ ] T9.37 add per-task status/owner columns to the deliverable TODO.md and keep updated during development (HARD)
+- [ ] T9.38 README user-manual sections: troubleshooting, configuration guide, contribution guidelines, deployment, License & Credits incl. reference-simulator attribution (HARD)
+- [ ] T9.39 add LICENSE file to both deliverable repos
+- [ ] T9.40 notebooks/analysis.ipynb — results-analysis notebook with LaTeX equations + citations, fed by lab D7 outputs (§9.2)
+- [ ] T9.41 token cost analysis table (input/output tokens, cost/M per model, optimization strategies) in README or docs (§11)
+- [ ] T9.42 C4 + UML + deployment diagrams (Mermaid) into docs/PLAN.md (§ diagrams)
+- [ ] T9.43 edge-case catalog (input -> expected response) + fault screenshots + stored automated test reports w/ pass rates
+- [ ] T9.44 .gitignore pins: .env, *.pem, *.key, credentials.json, token.json; CI secret scan covers all (HARD-lite)
+- [ ] T9.45 add logging_config.json to config architecture; keep constants.py inventoried in architecture.md (§7.3)
+- [ ] T9.46 package polish: __all__ in top __init__.py, pyproject author/license/description fields, no absolute paths audit (§14)
+- [ ] T9.47 PR-based partner review trail between Nissim & Yarden for at least the major feature branches (§8.2)
+- [ ] T9.48 ISO/IEC 25010 mapping table + Nielsen-heuristics UI note + screenshot gallery beyond the two mandatory shots
+- [ ] T9.49 frame one lab sweep as formal OAT sensitivity analysis with a statistical table (§9.1)
+- [ ] T9.50 sdk/ facade module exists by name and ALL logic flows through it (Table 5 code-review gate, HARD)
+- [ ] T9.51 Input/Output/Setup docstring convention on core classes + thread-safety notes in PLAN (§15-16)
+- [ ] T9.52 gatekeeper overflow = queue/backpressure at configured bound, never silent reject (Table 5) — align T7.10 wording

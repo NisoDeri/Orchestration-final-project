@@ -57,11 +57,12 @@ Covers PRD-4 (Language + Scent) — "the big leap" (brief §14.4) and the graded
 Covers PRD-5 (Cloud + Tunnel), PRD-6 (Security + Crypto).
 
 **Exit criteria:**
-- E3.1 Remote game over ngrok (paid plan, one reserved domain per role) between our two machines;
+- E3.1 Remote game over a public tunnel (provider per D5 — fresh ngrok reserved domains or free
+  named Cloudflare tunnel; the old paid ngrok account was deleted) between our two machines;
   tunnel preflight check in the Orchestrator (rule 10; D5).
 - E3.2 Commit-reveal in both hash dialects (D3), nonce secrecy until final audit (rule 18),
-  end-game mutual audit with `tamper_forfeit`; timeout/crash = **0/0 with the audit still run and
-  reported** (fixes reference gaps #5, #11–12).
+  end-game mutual audit; forgery, timeout and crash endings = **`technical_loss` 0/0 with the
+  audit still run and reported** (NotebookLM A6/A9a; fixes reference gaps #5, #11–12).
 - E3.3 Step-0 signed hardware declaration incl. **real `github_commit`** (`git rev-parse HEAD`)
   and the rule-23 scent-formula lock hash (fixes gaps #13–14).
 - E3.4 Watchdog live: 60s freeze threshold, crash-triggered controlled log extraction (rule 7;
@@ -232,14 +233,14 @@ claim in README/STRATEGY (D7: "every strategy claim artifact-backed").
 
 | # | Risk | Impact | Mitigation | Owner |
 |---|---|---|---|---|
-| R1 | **Hash-dialect mismatch with partner** (nonce-in-JSON book snippet vs reference pipe-append) → cross-audit fails, game voided | Counted game lost | D3 dual dialect, default `reference`; pinned in `LEAGUE-OPS.md` pre-series checklist item 1; dialect matrix tests | Nissim |
+| R1 | **Hash-dialect mismatch with partner** (nonce-in-JSON book snippet vs reference pipe-append) → cross-audit fails, game voided | Counted game lost | D3 dual dialect, default `book` (nonce-inside-JSON, authoritative per NotebookLM A1 2026-07-13; `reference` only by explicit negotiation); pinned in `LEAGUE-OPS.md` pre-series checklist item 1; dialect matrix tests | Nissim |
 | R2 | **Scent-law mismatch** (subtractive/max-merge vs multiplicative/additive) violating rule 23 | Game voided | D3 dual scent impl; exchange formula + numeric worked example + SHA-256 lock before every series | Yarden |
 | R3 | **Timeout-semantics dispute** (reference: waiting peer wins + audit skipped; book: 0/0 + audit) | Contradictory reports → both groups 0 (rule 34) | Our engine: 0/0 with audit always run (D4); pinned pre-series; result agreed in mutual log audit before either side emails | Nissim |
 | R4 | **Opponent runs unpatched reference** missing capture rules 46/47 and 5-option barriers | Rule disputes mid-game | Pre-series negotiation pins all landmines (reference_map §10 items 5, 10); contract-is-a-floor upgrades agreed in writing | Yarden |
 | R5 | **League scheduling** — partners unavailable late; ≥2 counted games is a pass/fail gate | Fail the project | Warm-ups start first days of W4 (D12/D13); 3 pod opponents available; counted only when stable | Both |
 | R6 | **Gmail OAuth failure/quota** at reporting time | Missing report → 0 for both groups | Port proven HW6 sender early in W4; 3-gate Gatekeeper; dry-run against our own address before league play | Nissim |
 | R7 | **Hygiene regressions late** (150-line, coverage) discovered at submission | Hard-gate loss | CI gates from day 1 (§4); files trending >140 lines split immediately (architecture.md budget headroom) | Yarden |
-| R8 | **Tunnel/latency instability** (rule 10; new failure class vs localhost) | Timeout losses | Paid ngrok + reserved domains (stable URLs for the declaration); preflight check; W3 remote test between our own machines before any league game | Nissim |
+| R8 | **Tunnel/latency instability** (rule 10; new failure class vs localhost) | Timeout losses | Stable-hostname tunnel per D5 (fresh ngrok reserved domains or free named Cloudflare tunnel — old paid account deleted); preflight check; W3 remote test between our own machines before any league game | Nissim |
 | R9 | **Turn-token desync** — no dedup in reference; retries duplicate messages (reference_map §3 retry semantics) | Deadlock/desync → technical loss | Inbox dedup by `(sender, step)`; FSM rejects out-of-order steps; watchdog catches residual freezes | Yarden |
 | R10 | **EULA/originality** — grader sees reference code copied | Originality axis loss / EULA breach | D1 hybrid: own re-implementation, wire-compatible; in-code attribution for adapted fragments; goldens used as fixtures with attribution | Both |
 
