@@ -1,0 +1,144 @@
+he sent us a link to notebook lm with those sources - if you want me to ask notebpookl anything - tell me ill paste him your prompt and give back his answer
+those are his sources:
+1-pre-game-declaration.txt
+Source guide
+This document serves as a foundational contract that establishes the unchanging parameters for a multi-round competition between two opposing teams. By recording permanent technical specifications—such as hardware capabilities, AI model types, and server locations—the file ensures that the playing field is transparent and consistent before any action begins. Because it excludes temporary data like mid-game scores or shifting player roles, it acts as a cryptographically locked anchor for the entire series of events. Ultimately, this declaration provides a secure architectural framework, allowing the focus to remain on the gameplay while maintaining a verifiable record of the initial agreement.
+
+
+
+
+
+
+
+
+
+
+
+{ "schema": "Static declaration for the WHOLE game (the full series of sub-games) between two teams. This is the single home for every field that does NOT change while the sub-games are played: team identity, members, cop/thief repository URLs, MCP server URLs, hardware spec, LLM model, the agreed max-tokens-per-game cap, and the game start/end times. Roles (cop/thief) switch across the sub-games, so no role and no sub_game_number appear here. Both teams sign it and lock it cryptographically before play (book ch5 Step-0). Data that changes per sub-game (github_commit, moves, scores) lives in 3-game-log.json and 4-final-result.json.","schema_version": "1.1","declaration_type": "pre_game_declaration","game_id": "S01R02-team07-vs-team13","game_uid": "3f2a9c17-8b4e-4d61-9a02-7c1e6b5d4f88","links": {"<game_id>.json; per-sub-game files (config, log) are named <game_id>_g<NN>.json where <NN> is the sub_game_number. The names below are examples for game_id=S01R02-team07-vs-team13.", "declaration": "declaration_S01R02-team07-vs-team13.json", "config": "config_S01R02-team07-vs-team13_g<NN>.json", "log": "log_S01R02-team07-vs-team13_g<NN>.json", "result": "result_S01R02-team07-vs-team13.json" }, "timezone": "Asia/Jerusalem", "game_started_at": "2026-07-11T09:00:00+03:00", "game_ended_at": "2026-07-11T10:45:00+03:00", "num_sub_games": 6, "max_tokens_per_game": 200000, "groups": { "group_1": { "group_id": "team-07", "group_name": "Team-Alpha", "members": ["id-1001", "id-1002", "id-1003"], "repos": { "cop": "https://github.com/team07/cop", "thief": "https://github.com/team07/thief" }, "mcp_servers": { "cop": "https://team07-cop.mcp.example.org", "thief": "https://team07-thief.mcp.example.org" }, "llm_model": "claude-opus-4-8[1m]", "hardware_spec": { "cpu_type": "Intel(R) Core(TM) i9-9980HK CPU @ 2.40GHz", "cpu_freq_mhz": 2400, "cpu_cores": 8, "ram_gb": 16, "gpu_model": "NVIDIA GeForce RTX 2060", "vram_gb": 6 }, "signature": "ed25519:base64-signed-blob" }, "group_2": { "group_id": "team-13", "group_name": "Team-Beta", "members": ["id-2001", "id-2002", "id-2003"], "repos": { "cop": "https://github.com/team13/cop", "thief": "https://github.com/team13/thief" }, "mcp_servers": { "cop": "https://team13-cop.mcp.example.org", "thief": "https://team13-thief.mcp.example.org" }, "llm_model": "claude-opus-4-8[1m]", "hardware_spec": { "cpu_type": "AMD Ryzen 7 5800X", "cpu_freq_mhz": 3800, "cpu_cores": 8, "ram_gb": 32, "gpu_model": "NVIDIA GeForce RTX 3070", "vram_gb": 8 }, "signature": "ed25519:base64-signed-blob" } } }
+2-agreed-config.txt
+Source guide
+This document serves as a formalized digital contract that establishes the exact parameters and mechanics for a competitive match between two specific teams. To ensure mathematical fairness and integrity, both participants must possess identical copies of these settings, verified through a unique cryptographic signature that prevents any unauthorized modifications. The configuration defines the foundational rules of the environment, including the board layout, movement constraints, and the specific scoring values awarded for capturing or surviving opponents. Beyond the gameplay, the file also regulates the technical communication protocols, such as network timeouts and request limits, which govern how the two systems interact during the simulation.
+
+
+
+
+
+
+
+
+
+
+
+{ "_schema": "Agreed game configuration for one match. Values come from the master parameter table (Appendix F). Per the appendix's mandatory rules both teams must hold BYTE-IDENTICAL values, lock them cryptographically (config_sha256), give the file a unique name per game, and attach it to GitHub. 'status' recap: minimum = may only be raised; permanent = must not change; negotiation = any agreed value.", "schema_version": "1.2", "_note": "Shared, agreed game terms. BOTH peers must hold a byte-identical copy; the pre-game signature exchange refuses to play on any mismatch. This overlays the private per-peer game.toml. Book: Appendix F.", "agreed_between": [ "team-07", "team-13" ], "board_and_agents": { "grid_size": 7, "num_agents": 2, "thief_start": [ 3, 3 ], "cop_start": [ 0, 0 ], "axis_origin_corner": "top-left", "axis_start_index": 0 }, "world": { "note": "The real-world area the game is set in (e.g. 'New York'). Drives location-based landmarks in the trash-talk hints. Default empty = generic. Agreed & signed term.","map_area": "New York","hint_max_words": 15},"movement_and_barriers": {"move_set": ["N","S","E","W","STAY"],"max_barriers": 14,"max_moves": 35,"survival_threshold": 35},"scoring": {"capture_cop": 20,"capture_thief": 5,"survival_cop": 5,"survival_thief": 10,"tie_score": 2,"technical_loss": 0},"pheromones": {"pheromone_center_intensity": 0.9,"pheromone_decay": 0.1,"pheromone_grid_size": 5},"network_and_league": {"response_timeout_sec": 30,"watchdog_timeout_sec": 60,"num_games": 6,"diversity_reward": 10,"min_games_to_pass": 2,"max_games_per_team": 10,"token_budget_per_series": 200000},"rate_limiter_gatekeeper": {"requests_per_minute": 30,"concurrent_requests": 2,"retry_backoff_sec": 5,"max_retries": 3,"queue_depth": 100},"game_id": "S01R02-team07-vs-team13","game_uid": "3f2a9c17-8b4e-4d61-9a02-7c1e6b5d4f88","sub_game_number": 3,"links": {"<game_id>.json; per-sub-game files (config, log) are named <game_id>_g<NN>.json where <NN> is the sub_game_number. The names below are examples for game_id=S01R02-team07-vs-team13.", "declaration": "declaration_S01R02-team07-vs-team13.json", "config": "config_S01R02-team07-vs-team13_g<NN>.json", "log": "log_S01R02-team07-vs-team13_g<NN>.json", "result": "result_S01R02-team07-vs-team13.json" }, "config_name": "game_S01R02G003_team07_vs_team13.json", "config_sha256": "9f2c0b7a4d1e8c35f6a2b90c7d4e15a2c8f3061b9e4d7a2c1f0b8e6d3a5c2e1a4" }
+
+3-game-log.txt
+Source guide
+This match log details a cryptographically secured game between two competing artificial intelligence teams, utilizing a commit-reveal scheme to ensure the integrity of every move and strategic intent. The structure of the document captures a sequential audit trail, documenting not only the physical coordinates and actions on a grid but also the internal reasoning of the Large Language Model as it decides whether to deceive or tell the truth to its opponent. By archiving specific nonces, SHA-256 hashes, and natural-language prompt discussions, the log serves as a transparent record for a Replay Viewer to verify that neither side cheated during the digital pursuit. Ultimately, the file functions as a technical bridge between game theory and algorithmic accountability, proving the validity of the match results through verifiable data.
+
+
+
+
+
+
+
+
+
+
+
+{ "schema": "Per-sub-game match log consumed by the Replay Viewer for cryptographic audit. Each step is committed as SHA-256(State || Move || Intent || Nonce) and later revealed; nonces are revealed only at the final audit (book ch5 commit-reveal, ch7 replay). Static team metadata (hardware, members, repos, model) is NOT repeated here — it lives in 1-pre-game-declaration.json; join by game_uid. Step 0 is the signed step-zero record carrying only what changes per sub-game (github_commit). The 'prompt_discussion' block records the natural-language exchange and the LLM prompt/reasoning behind each hint (book ch6 prompt engineering).","schema_version": "1.1","game_id": "S01R02-team07-vs-team13","game_uid": "3f2a9c17-8b4e-4d61-9a02-7c1e6b5d4f88","links": {"<game_id>.json; per-sub-game files (config, log) are named <game_id>_g<NN>.json where <NN> is the sub_game_number. The names below are examples for game_id=S01R02-team07-vs-team13.", "declaration": "declaration_S01R02-team07-vs-team13.json", "config": "config_S01R02-team07-vs-team13_g<NN>.json", "log": "log_S01R02-team07-vs-team13_g<NN>.json", "result": "result_S01R02-team07-vs-team13.json" }, "summary": { "sub_game_number": 1, "group_id": "team-07", "role": "cop", "opponent_group_id": "team-13", "result": "capture", "winner_role": "cop", "steps": 4, "timezone": "Asia/Jerusalem", "started_at": "2026-07-11T09:05:23+03:00", "ended_at": "2026-07-11T09:07:03+03:00", "duration_seconds": 99.9, "tokens_total": 32843, "audit": { "passed": true, "verified_steps": 6, "failed_steps": [] } }, "records": [ { "payload": { "step": 0, "type": "step_zero", "declaration_ref": "1-pre-game-declaration.json", "group_id": "team-07", "role": "cop", "sub_game_number": 1, "github_commit": "7cf3fc9" }, "nonce": "042c257ae2efb9a9044f2b297e611b53", "commit": "f93a2398225186877a99fd466cad42d73c4d1227199922e2dc43093dea2e1878" }, { "payload": { "step": 1, "state": "grid=7x7;self=[4,4];barriers=[]", "position": [4, 4], "move": "MOVE:NE", "intent": "lie", "hint": "Heads up from Times Square, I'm working the midtown blocks, nowhere near the harbor.", "prompt_discussion": { "llm_prompt": "You are the thief. Belief/scent summary: heavy scent SE, cop last seen NE. Compose one short, plausible but MISLEADING hint that pulls the cop away.", "llm_reasoning": "Scent already leaks my southeast bias; a northward bluff maximizes the cop's Manhattan-distance error next turn.", "bluff_classification": "deceptive" }, "tokens_step": 32843, "tokens_total": 32843, "response_seconds": 29.1, "random_move": false }, "nonce": "28bf2f119c2f301ce60b0ef5e8c037a9", "commit": "83e23880dd44d8cacd608883f8029070a340d6d369021e5191c96ba75a9cb038" }, { "payload": { "step": 2, "state": "grid=7x7;self=[3,3];barriers=[]", "position": [3, 3], "move": "MOVE:NW", "intent": "truth", "hint": "I keep moving through the streets.", "prompt_discussion": { "llm_prompt": "You are the thief. The cop is closing from the east. Give a vague truthful hint that reveals little.", "llm_reasoning": "Low token budget remaining; fall back to a generic truthful message to avoid an audit-time lie mismatch.", "bluff_classification": "truthful" }, "tokens_step": 0, "tokens_total": 32843, "response_seconds": 0.0, "random_move": true }, "nonce": "115bbe56e959b5932a04dede91581fc9", "commit": "cbc6d843dfe07443d1fe64dedf2a670b6a8c5cd479ad8d9703e225a15bea9cbe" } ], "mutual_agreement": { "opponent_group_id": "team-13", "sha256": "d494603163eb5146240d2823566732172d1d9fe2bd4e96f4c000a7e1883c050f", "confirmed": true } }
+
+Sources
+4-final-result.txt
+Source guide
+This document serves as a formalized digital handshake that summarizes the competitive outcome between two teams across a series of adversarial matches. By condensing detailed logs into an aggregate performance report, it provides the essential data required to calculate league standings without repeating static background information. The structure meticulously tracks individual rounds, noting specific metrics like resource consumption, victory types, and audit verification to ensure no tampering occurred. Ultimately, the file acts as a mutually verified record, requiring both parties to confirm the final scores and winner before submission for official ranking.
+
+
+
+
+
+
+
+
+
+
+
+{ "schema": "Summary and final result for the WHOLE game (all sub-games) between two teams. It condenses the per-sub-game logs into a per-group score for every sub-game plus the aggregate outcome the lecturer needs to build the league standings. Static team metadata (identity, members, repos, MCP, hardware, model) is NOT repeated here — it lives in 1-pre-game-declaration.json and is referenced via game_id / group_id. Both teams must agree on this result and each sends its own copy to the lecturer (book ch9).","schema_version": "1.1","report_type": "final_game_result","game_id": "S01R02-team07-vs-team13","game_uid": "3f2a9c17-8b4e-4d61-9a02-7c1e6b5d4f88","links": {"<game_id>.json; per-sub-game files (config, log) are named <game_id>_g<NN>.json where <NN> is the sub_game_number. The names below are examples for game_id=S01R02-team07-vs-team13.", "declaration": "declaration_S01R02-team07-vs-team13.json", "config": "config_S01R02-team07-vs-team13_g<NN>.json", "log": "log_S01R02-team07-vs-team13_g<NN>.json", "result": "result_S01R02-team07-vs-team13.json" }, "timezone": "Asia/Jerusalem", "groups": ["team-07", "team-13"], "num_sub_games": 6, "sub_games": [ { "sub_game_number": 1, "roles": { "team-07": "cop", "team-13": "thief" }, "started_at": "2026-07-11T09:05:23+03:00", "ended_at": "2026-07-11T09:07:03+03:00", "result": "capture", "winner_group": "team-07", "tie": false, "github_commit": { "team-07": "7cf3fc9", "team-13": "a1b2c3d" }, "tokens": { "team-07": 32843, "team-13": 28715 }, "score": { "team-07": 20, "team-13": 5 }, "log_files": { "team-07": "police_match_S01R02G001.json", "team-13": "thief_match_S01R02G001.json" }, "audit": { "log_verified": true, "tampered": false } }, { "sub_game_number": 2, "roles": { "team-07": "thief", "team-13": "cop" }, "started_at": "2026-07-11T09:12:10+03:00", "ended_at": "2026-07-11T09:19:44+03:00", "result": "survival", "winner_group": "team-07", "tie": false, "github_commit": { "team-07": "7cf3fc9", "team-13": "b2c3d4e" }, "tokens": { "team-07": 15200, "team-13": 41030 }, "score": { "team-07": 10, "team-13": 5 }, "log_files": { "team-07": "thief_match_S01R02G002.json", "team-13": "police_match_S01R02G002.json" }, "audit": { "log_verified": true, "tampered": false } }, { "sub_game_number": 3, "roles": { "team-07": "cop", "team-13": "thief" }, "started_at": "2026-07-11T09:25:00+03:00", "ended_at": "2026-07-11T09:31:52+03:00", "result": "tie", "winner_group": null, "tie": true, "github_commit": { "team-07": "7cf3fc9", "team-13": "b2c3d4e" }, "tokens": { "team-07": 22110, "team-13": 23890 }, "score": { "team-07": 2, "team-13": 2 }, "log_files": { "team-07": "police_match_S01R02G003.json", "team-13": "thief_match_S01R02G003.json" }, "audit": { "log_verified": true, "tampered": false } } ], "final_result": { "total_score": { "team-07": 32, "team-13": 12 }, "sub_games_won": { "team-07": 2, "team-13": 0 }, "ties": 1, "winner_group": "team-07", "series_tie": false, "tokens_total_series": { "team-07": 70153, "team-13": 93635 }, "games_played_including_this": { "team-07": 3, "team-13": 4 }, "first_meeting_between_groups": true, "diversity_reward_applied": { "team-07": true, "team-13": false } }, "mutual_agreement": { "sha256": "d494603163eb5146240d2823566732172d1d9fe2bd4e96f4c000a7e1883c050f", "confirmed": true } }
+
+Source guide
+The document serves as a technical manual for an advanced computer science project at the University of Haifa involving a distributed Cops-and-Robbers game played over a peer-to-peer (P2P) network. Using the Dec-POMDP mathematical framework, students must design autonomous AI agents that operate under partial observability and deep uncertainty, where neither "cop" nor "thief" has a complete view of the world or a central authority to referee the match. The system architecture relies on the Model Context Protocol (MCP) and the FastMCP library, which allows each agent to simultaneously function as both a client and a server to facilitate decentralized communication without a central server. Key technical requirements include implementing a cryptographic commit-reveal protocol to prevent cheating, managing dynamic pheromone scents for tracking, and integrating Large Language Models (LLMs) for strategic reasoning and deceptive verbal signaling. Ultimately, the project emphasizes system orchestration over simple coding, challenging students to build a resilient, fair, and autonomous competitive environment where trust is established through mathematics rather than a middleman.
+
+
+LINKS FROM COURSE MOODLE PAGE
+
+קישור לריפוזיטורי ציבורי המכיל סימולטור של המשחק שוטרים וגנביםקישור לאתר אינטרנט
+לשימוש בסימולטור עליכם להוריד את הריפוזיטורי. לפתוח שני טרמינלים POWERSHELL 
+בREADME כתוב בדיוק איך להריץ הסימולטורים.
+הנוסף יש לכם מחברת NOTEBOOKLM במכילה את כל הקוד בצורת TXT (כי לא ניתן להכניס PYTHON למחברת) ואז תוכלו לשאול על הקוד כל שאלה.
+מומלץ להכין גרף ידע באמצעות GRPHIFY כפי שלמדנו בשיעור ולבצע באמצעותו "הנדסה לאחור" של הקוד.
+מותר לכם להשתמש בחלקים מהקוד בפרויקט שלכם. 
+הסימולטור נועד להמחיש עקרונות המשחק, אך בהחלט לא פרויקט הגמר. אין בסימולטור כל אסטרטגיה. ברירת המחדל לא מחורת לLLM ומיצרת שיחות רק על בסיס בנק משפטים מוגדר מראש - מצב TEMPLATE
+
+https://github.com/rmisegal/Game-P2P-Cop-Chase.git
+
+
+מצורפת גירסה 3.0.0 של הספר המתאר את כל תכולת הפרוייקט. 
+זאת הגירסה המחייבת.
+שימו לב לנספחים בסוף הספר, בעיקר לנספח ו' המכיל את הערכים המספרים של הפרוייקט.
+
+שימו לב כי לספר גם מצורף קישור לריפוזיטורי של קוד פתוח לשימושכם המכיל סימולציה של המשחק בין שוטר לגנב ,הרצה בשני טרמינלים נפרדים במחשב המקומי.
+צרפתי לכם גם CHATBOT בצורת מחברת NOTBOOKLM לשיחה על ספר הפרוייקט.
+צרפתי לכם גם CHATBOT בצורת מחברת NOTEBOOKLM לשיחה על הקוד של הסימולטור
+לספר זה מצורפים 4 תבניות של קובצי JSON שאותם הסוכן צריך לשלוח למרצה סיום המשחק שהם חתומים ומסכמים על 2 הקבוצות.
+מודגש מינימום משחקים בין קבוצות לפחות 2 משחקים עם קבוצות שונות בכדי להיות זכאי לציון על הפרויקט. מקסימום משחקים לכל קבוצה עד 10 משחקים עם קבוצות שונות.
+המשחק תוכנן כך שגם ללא LLM בכלל אפשר לבצע את המשחק. ברור שהתקווה היא שתעשו שימוש מושכל בLLM.
+מועד אחרון להגשת פרויקט הגמר 12/08/26 ב23:59. אין אישור להגיש לאחר מועד זה!!!
+בהצלחה
+
+יורם
+
+מכיוון שלא ניתן להכניס קובצי פייתון, כל הקבצים מומרים לTXT ואז הם כולם ניתנים לשימוש במחברת.
+אתם יכולים לשאול כל שאלה על הקוד.
+מה שיעזור לכם להתמצא בקוד.
+מודגש הקוד הוא נקודת התחלה אך במקרה של סתירה בין הספר לקוד הרי שהספר קובע.
+
+
+
+There is a notebooklm chat with all simulator source code if you need this
+פרוייקט הגמר:  משחק P2P של שוטרים וגנבים בין סוכני AI 
+
+הוראות והנחיות של פרויקט הגמר מוגדרות בחוברת פרויקט הגמר הנמצאת במיקטע המודל העוסק בפרויקט הגמר.
+
+כרגיל, ההנחיות הקובץ הן הנחיות כלליות, ומהוות תנאי הכרחי אך לא מספיק.
+
+עליכם להכניס את האינטרפטציה שלכם, לאלו השואפים לציונים מצטיינים עליהם להביא את ההרחבות שלכם, את המחשבות המקוריות, את היחודיות  ואת המעוף.
+
+מותר לכם להסכים על חוקים נוספים ולשנות חוקים קיימים היכן שחוברת הפרויקט מאפשרת. מודגש הדו שיח במשחק חייב להתקיים בשפה חופשית בין הסוכנים
+
+חלק מהותי מהמשימה זה לדעת להגדיר ולאפיין לסוכנים את ההנחיות המתאימות ליצירת הקוד המבוקש ובפרט תכנון הארכיטקטורה המודולרית ובעיקר טקטיקת המשחק.
+
+פרוייקט זה מכיל מרכיב תחרותי בין הקבוצות. מקום אחרון בליגה יקבל 75 ומקום ראשון בליגה יקבל 100. לציון יתווסף בונוס של עד 10 נקודות בהתאם לציון משחק הבונוס שהוגש במסגרת מטלה 06 למי שהגיש.
+
+ביצוע 2 משחקים שלמים מלאים העומדים בכל ההנחיות יאפשר קבלת ציון בפרויקט. 
+
+שימו לב: במבוא לקורס במודל יש קובץ המלצות לכתיבה והגשת תוכנה באמצעות סוכני AI. הבדיקה של המטלה תתבצע על בסיס העקרונות המופיעים בקובץ זה.
+
+------------------------------
+
+הנחיות קבועות:
+
+1. את הקוד תוכנה יש להגיש בשני רפוזיטורים בGITHUB אחד של השוטר ואחד של הגנב.   - קישור אחד זהה לכל חברי הקבוצה ולהקפיד לשתף את המרצה rmisegal@gmail.com או באופן ציבורי.
+
+2. כל חבר קבוצה חייב להגיש את המטלה בנפרד במודל.  מדידת חלון הזמן של הגשה היא פרטנית ולא קבוצתית.
+
+3. יש לתת שם קוד מזהה יחודי בין 8 תווים (ללא רווחים) לקבוצת המגישים - שם הקבוצה (הקוד שילווה אותכם לכל אורך הסמסטר) לדוגמה uoh-rl07
+
+4. מצורף קובץ וורד חדש (לא כפי שהיה במטלות האחרות) המכיל תבנית ליצירת PDF להגשה במודל. אסור לשנות את השדות או להזיז מיקום. עליכם רק למלא את הפרטים ולשמור כPDF ולהגיש. אסור לכתוב, או לצרף כל טקסט נוסף.
+שם הקובץ צריך להיות xxxxxxxx-exyy.pdf כאשר xxxxxxxx זה קוד הקבוצה ואילו yy זה מספר התרגיל המוגש.
+5. המלצה לציון עצמי לקבוצה על על ההגשה (שימו לב רמת הדקדוק והקטנוניות בבדיקה נגזרת מהציון - למשל במקרה של ציון 100 תתבצע בדיקה מאד דקדקנית והקפדה על כל קוצו של יוד במילים אחרות סוכן הAI מחפש "פילים בקנה" ולחלופין ציון עצמי 60 - אם יש הגיון בהגשה והיא סבירה תקבלו בדיקה מאד גמישה אוהדת ומכילה. ציון עצמי נמוך מידי גורם למערכת להטות את הציון שלכם כלפי מטה. תתנו הערכה כנה ובכך תבטיחו ציון יותר מדוייק.
+
+6.לא  ניתן להגיש באיחור - הגשה באיחור לא תחשב כמוה כאי הגשה!
+
+7. הערות מיוחדות (ככול שיש אישור של המחלקה  בגין כל איחור מוצדק (מילואים, חופשת לידה וכ"ו), יש לצרף את אישור המחלקה. אין לצרף אישור אחר.  
+
+8. מילואימניקים ומילואימניקיות  המועד האחרון להגשות המאוחרות של המטלות שלכם הוא עד ליום הגשת פרויקט הגמר.
+הגשה לאחר מועד בגין כל סיבה תחשב כאי הגשה.

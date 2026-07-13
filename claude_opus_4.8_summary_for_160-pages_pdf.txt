@@ -1,0 +1,439 @@
+****summary is in md file called final project brief.md****
+pdfthis is a 160 pages pdf for the final project - i want you to give the most detailed summary for calude code for this - he started a skeleton for th efinal project based on hw6 - assume he knows nothing on the final project but experienced with yorams assignemts and guideleiens (150 lines file length and all taht) explain him all he has to do and know about the projectStrategized extracting and synthesizing comprehensive project briefing documentStrategized extracting and synthesizing comprehensive project briefing documentThis is a big task — a 160-page spec to distill into a Claude Code briefing. Let me read the PDF properly first. I'll consult the PDF-reading skill so I extract it efficiently.Deciphering Hebrew document structure and abstract detailsDeciphering Hebrew document structure and abstract detailsNow let me inventory the PDF and check the text layer.Excavating document structure and locating table of contentsExcavating document structure and locating table of contents160-page Hebrew LaTeX spec — a far more advanced P2P evolution of hw6 (no central referee, symmetric agents, stigmergic scent map, cryptographic commit-reveal, two repos). The text layer is cluttered with Hebrew niqqud and RTL marks; let me extract the whole thing, strip those, and pull the structure so I can read it systematically.Synthesizing project deliverables and architectural patternsSynthesizing project deliverables and architectural patternsClear structure now: 10 chapters + 6 appendices. The actionable core for Claude Code is in the appendices (mandatory rules, the parameters table = single source of truth, GitHub submission spec), so let me read those first, then the mechanics chapters.Extracting mandatory rules and quantitative parameters preciselyExtracting mandatory rules and quantitative parameters preciselySuperb detail. Let me read Appendix E (the Do/Don't rules) and Appendix F (the mandatory parameters table — the single source of truth).Hunting down critical scent equations and commit-reveal mechanicsHunting down critical scent equations and commit-reveal mechanicsI now have the complete rules (all 55) and the parameters table. Let me read the core mechanics chapters — P2P/FastMCP and board physics — to explain the how.Gathering project deliverables and architectural specificationsGathering project deliverables and architectural specificationsNow the two most critical mechanics: the scent equations (rest of Ch4) and the commit-reveal protocol (Ch5).Harvesting README components and development order detailsHarvesting README components and development order detailsNow the reporting/deliverables chapter (Ch9) and the recommended development order (Ch10) — the roadmap Claude Code should follow.Synthesizing comprehensive briefing from multiple chaptersSynthesizing comprehensive briefing from multiple chaptersLet me grab the README's mandatory components and the recommended development order to complete the picture.Strategically prioritized key chapters to synthesize comprehensive project briefingStrategically prioritized key chapters to synthesize comprehensive project briefingI have deep coverage now. Let me grab two remaining specifics — the formal Dec-POMDP tuple (Ch1) and the Bayesian belief update (Ch6) — since both are required README components.Architected comprehensive briefing document spanning project scope, architecture, and development roadmapArchitected comprehensive briefing document spanning project scope, architecture, and development roadmapI've now read the whole spec — all 10 chapters and appendices A–F. I have the complete picture: the Dec-POMDP model, the P2P/FastMCP architecture, board physics, the stigmergic scent math, the commit-reveal crypto protocol, the strategy extension points, all 55 mandatory rules, the full parameters table, the four JSON files, the league/reporting rules, and the 7-stage build order. Let me write the briefing as a self-contained markdown file Claude Code can work from.Prepared to deliver file with concise project overviewPrepared to deliver file with concise project overviewI read the whole 160-page spec — all ten chapters and appendices A–F — and wrote Claude Code a single self-contained briefing.Presented filePresented fileIt's written specifically for a Claude Code instance that knows HW6 but nothing about the final project. What's inside:
+
+An HW6 → final-project diff table up top — the fastest way to load the project, since it anchors every change against code it already wrote (referee → crypto, one repo → two, 5×5 → 7×7, simple sensing → scent+belief, etc.).
+The full mechanics with the actual math: the Dec-POMDP 8-tuple, the scent emission/decay equation τ_ij(t+1) = max(0, (1−ρ)·τ_ij(t) + Δτ_ij), the Bayesian belief + Manhattan move policy, and the Commit-Reveal protocol with a working commit/verify code reference (SHA-256, canonical JSON, secret Nonce, 4 stages, mutual audit, Step-0 hardware declaration).
+Appendix F reproduced as tables — every parameter with its fixed/minimum/negotiable status (7×7, quota 14, ceiling/survival 35, scent 0.9/0.10/5×5, scoring, league, Gatekeeper), plus the addresses and the four JSON files.
+All 55 mandatory rules condensed into a grouped checklist with the disqualification sanctions.
+The 7-stage build order (base logic → MCP infra → blind strategy → language+scent → cloud/tunnel → crypto → reporting shell), the layered file architecture to mirror, the submission/README requirements, and a concrete "first actions" list telling it what to reuse from HW6 vs. build new.
+
+Two things I made unmissable because they're the biggest traps: the move is always computed in Python (the LLM only touches the verbal/deception layer), and the book + Appendix F override the reference repo wherever they conflict.
+If you want, I can also turn the "first actions" section into an actual PLAN.md + seven stubbed PRD files matching the seven stages, so Claude Code has the scaffold in the repo rather than just the briefing.
+
+
+# Final Project Briefing — "Distributed Cops-and-Robbers over a P2P Network"
+
+**For: Claude Code.** You already built HW6 for this course (Dr. Yoram Segal, "Orchestration of AI Agents," Univ. of Haifa) and you know his house style — files ≤150 lines, config-driven everything, `uv` + `ruff` + `pytest`, SDK / Gatekeeper / Orchestrator patterns, mandatory PRD/PLAN/TODO/README docs, autonomous JSON email reporting. This document assumes you know **none** of the final-project content. Read it fully before touching the skeleton.
+
+**Source of truth.** Everything here is distilled from the rule-book (book v3.0.0). Two anchors override everything else, including the example repo and including your HW6 habits:
+- **Appendix F — the mandatory parameters table** is the *single source of truth for every quantitative value*.
+- **Appendix E — the 55 mandatory rules** ("Do / Don't / Recommend") define what gets you disqualified.
+
+When the reference repo (`github.com/rmisegal/Game-P2P-Cop-Chase`) and the book disagree, **the book + Appendix F win.**
+
+---
+
+## 0. The mission in one paragraph
+
+Build **two symmetric autonomous agents — a Cop and a Thief — that play a pursuit game on a grid with NO central server/referee.** Each agent is *simultaneously a server and a client* over `FastMCP` (MCP protocol). Neither agent can see the true world state: each maintains a **Bayesian belief** about the opponent's location, built from (a) the opponent's **decaying scent trail** (biological stigmergy — cannot be faked) and (b) the opponent's **verbal hints** (natural language — *may be lies*). Integrity without a referee is guaranteed by a **cryptographic Commit-Reveal protocol** (SHA-256): any tampering is provably caught in a post-game audit and scores the cheater 0. The whole thing runs over the public internet (ngrok/Localtonet tunneling), in a live league against other groups' agents, and reports results as signed JSON via the Gmail API. You submit **two separate GitHub repos** (one Cop, one Thief).
+
+The grade is decided by four things — **Coordination, Adaptation (scent-based), Integrity (crypto), and Architecture (Gatekeeper/Orchestrator)** — *not* by the cleverness of any single algorithm.
+
+---
+
+## 1. HW6 → Final Project: the diff (read this first)
+
+You know HW6. Here is precisely what changes. This is the fastest way to load the project.
+
+| Aspect | HW6 (what you built) | Final project (what to build) |
+|---|---|---|
+| **Referee** | One central referee adjudicates every move | **No referee.** Physics is enforced by each agent locally, using a **byte-identical, cryptographically-locked shared config**. Integrity comes from crypto, not authority. |
+| **Topology** | Agents + referee, effectively one host | **True P2P.** Each agent is **both a `FastMCP` server** (exposes `@mcp.tool` like `receive_move`) **and a client** (calls the opponent's tool). Fully symmetric — no strong/weak side. |
+| **Processes / repos** | One repo, in-process | **Two separate OS processes**, **two separate config dirs** (`config/police/` vs `config/thief/`), **two separate GitHub repos** (cop + thief). Zero-Trust: sharing any memory/variable/module-with-live-state between the two sides = instant disqualification. |
+| **Sensing** | Chebyshev radius + compass hint | **Stigmergic scent map** (emission + decay equations) feeding a **Bayesian belief matrix** `P(opponent = cell)`. |
+| **Board** | 5×5 | **7×7 minimum** (bigger state space defeats brute force). |
+| **Barriers** | Cop-only, on own cell, ≤5, block both | Cop-only, ≤**14**, block both, irreversible — **but placeable on the cop's own cell OR any of the 4 orthogonally-adjacent cells** (5 options). New capture rules (below). |
+| **Win/score** | Capture 20/5, survive 25 rounds → 5/10 | Capture 20/5, **survive 35 moves** → 5/10, **tie → 2 each**, technical loss → 0/0. |
+| **Comms** | Cop used LLM for dialogue | **LLM touches ONLY the verbal/deception layer. The move is ALWAYS computed in Python.** Free natural language only; **numeric-coordinate protocols are forbidden.** 4 selectable LLM modes. |
+| **Reporting** | One JSON email | **Four JSON files** (declaration / config / log / result) + Gmail API over **OAuth 2.0 (send-only scope)** + a **Gatekeeper** (quota manager + token-bucket + DOS detector). **Mutual agreement**: both groups email separately, identical result, or both get 0. |
+| **Network** | localhost | **Public tunneling (ngrok/Localtonet) is mandatory** for league play. localhost only in early dev. |
+| **Integrity** | Referee | **Commit-Reveal (SHA-256)** + secret Nonce + mutual log audit + a **replay verifier app** that must show "Verified OK". |
+| **New concepts** | — | **Step-0 signed hardware declaration** → *computational fairness* (efficient algo on modest hardware is rewarded); **league** with *diversity reward*; per-game commit hash; token reporting; annotated git tag; Moodle form per member; 8-char group code; self-score for **code quality only**. |
+
+**Bottom line:** HW6's game logic is reusable, but you are replacing the referee with crypto + P2P, replacing simple sensing with scent+belief, splitting into two processes/repos, and wrapping it in a real distributed-systems shell.
+
+---
+
+## 2. Non-negotiable architecture (Appendix E, group 1)
+
+These are hard rules. Sanctions in parentheses.
+
+1. **Cop and Thief run in two completely separate processes** (else: total failure + Zero-Trust breach).
+2. **Never share memory/variables/live-state modules between the two sides** (else: instant disqualification for info leakage). Separate `config/police/` and `config/thief/` dirs.
+3. **The Orchestrator is the single entry point** to all subsystems (else: instability + loss).
+4. **Manage game state with a proper state machine** (else: technical loss from deadlock).
+5. **Reject every illegal state transition** in that machine (else: logic error → loss).
+6. **Deadline/timeout tracking** so you never freeze waiting for the opponent (else: paralysis → timeout loss).
+7. **A watchdog** monitoring process crashes + controlled data extraction (else: crash → loss of official log).
+8. **The live UI shows LOCAL TRUTH ONLY** (else: disqualification for info breach).
+9. **Never render the full objective board state in the live UI** (else: disqualification for illegal advantage).
+10. **Use a tunneling tool** to expose your local server publicly (else: can't compete in the league).
+
+The success metrics the lecturer grades against: **Coordination** (turn management, P2P protocol), **Adaptation** (belief under uncertainty via scent), **Integrity** (anti-cheat via hashing), **Architecture** (Gatekeeper + Orchestrator + resilient, fail-safe code).
+
+---
+
+## 3. The Dec-POMDP model (needed for README component #1)
+
+The environment is formally a **Decentralized Partially Observable Markov Decision Process**, the 8-tuple:
+
+```
+⟨ n, S, {Aᵢ}, P, R, {Ωᵢ}, O, γ ⟩
+```
+
+- **n = 2** — cop and thief (a single rational adversary, not random nature).
+- **S** — full world state: exact coordinates of both agents + static barrier layout + the dynamically-changing scent grid. Multi-dimensional → brute-force enumeration is infeasible (this is *why* you use heuristics/learning).
+- **{Aᵢ}** — actions: physical moves, build actions (placing barriers), and communication actions (natural-language hints, *which may be false*). Physics + psychology combined.
+- **P** `P(s′ | s, a₁, a₂)` — transition function. Because there is no central server, **both sides must compute the same P — it is encoded in the shared config.**
+- **R** — reward function, translated directly from the scoring table (§5).
+- **{Ωᵢ}, O** — observations: the core uncertainty. Neither agent sees the other; each is fed only the opponent's **decaying scent trail** + the opponent's **verbal declarations**. This is what forces a probabilistic **belief map**.
+- **γ** — discount factor ∈ [0,1); high γ rewards patient strategy (e.g. building a barrier trap over many turns).
+
+You must describe your adopted Dec-POMDP (state space, observations, uncertainty) in each repo's README.
+
+---
+
+## 4. Board & physics (Ch3, Appendix F tables 13 & 15)
+
+- **Grid:** 7×7 minimum. Cell = `(row, col)`. Origin `(0,0)` top-left (vertical axis grows downward), 0-indexed. So center of 7×7 is `(3,3)`, corner is `(0,0)`. Origin corner and index base are *negotiable but must be identical on both sides* — if one side counts from 0 and the other from 1, `(3,3)` won't match and the game breaks.
+- **Start positions** (negotiable, must match): thief center `(3,3)`, cop corner `(0,0)` — example only; any legal agreed layout is allowed. Loaded from config, never hard-coded.
+- **Movement (FIXED):** each turn an agent makes **one** move — step one cell **orthogonally (up/down/left/right) OR stay put**. **No diagonals** — a diagonal move is rejected by the opponent enforcing physics → technical loss.
+- **Barriers (the cop's asymmetric power):** on a turn where the cop **forgoes moving**, it may place a barrier on **any cell within one step — the cell it stands on, or one of the 4 orthogonally-adjacent cells**. The barrier cell becomes **impassable for BOTH players until the end of the game** (irreversible). Quota = **14 minimum**.
+  - **Capture-by-barrier:** if the cop places a barrier on the cell the thief currently occupies → **thief captured (cop wins).**
+  - **Jailed thief:** a thief with **no legal move** (all adjacent cells blocked by barriers and/or board edge) → **also counts as captured.**
+  - **Mandatory truthful declaration:** the cop must openly declare every barrier placement and its exact location. No hidden barriers; lying about a barrier location = severe disqualification (caught in audit).
+  - Barriers are a resource-management problem: don't wall yourself in or open a new escape lane for the thief.
+
+### Scoring (Appendix F table 17 — all FIXED)
+
+| End event | Condition | Cop pts | Thief pts |
+|---|---|---|---|
+| **Capture** | Cop lands on thief's cell (+ Capture Claim), or barrier-on-thief, or thief jailed | **20** | **5** |
+| **Survival** | Thief survives 35 valid moves with no capture | **5** | **10** |
+| **Technical loss** | A side crashes, times out, or commits crypto forgery | **0** | **0** |
+| **Tie** | Cumulative score across all sub-games vs one opponent is equal | **2** | **2** |
+
+The asymmetry is intentional: capture is the cop's best outcome; long survival is the thief's best; technical loss zeroes **both** (so nobody wins "on a timeout"). When the cop declares a capture, the thief has a **cryptographic obligation to answer truthfully** — a lie is caught in the log audit → total disqualification.
+
+---
+
+## 5. Stigmergic scent map (Ch4, Appendix F table 16 — all FIXED)
+
+Biological ant-pheromone coordination. **Both agents emit scent; each reads only the opponent's trail.** Scent is emitted automatically by moving/staying and **cannot be faked** — this is what exposes verbal lies.
+
+- **Emission:** whenever an agent moves or stays, a scent field of size **5×5** forms around it. Center cell (the agent's position) gets intensity **0.9**; intensity falls off radially with distance (near cells high, edge cells a faded remnant). Concentrated fingerprint, not a single point.
+- **Decay:** after every *full* turn (both agents have moved), all scent on the board decays. Decay rate **ρ = 0.10** per turn. Update rule for cell `(i,j)`:
+
+```
+τ_ij(t+1) = max(0, (1 − ρ)·τ_ij(t) + Δτ_ij)
+```
+
+  where `τ_ij(t)` ∈ [0, 0.9] is current intensity (a local certainty score — high = the opponent was here recently), `Δτ_ij` is new emission this turn (0.9 at center, radial falloff, 0 if the agent is far), and `max(0, ·)` keeps it non-negative. `(1−ρ)` = *forgetting* (shrinks old scent to 90%); `Δτ` = *memory* (writes the present).
+- **Practical consequence:** with ρ=0.10 a single deposit stays "readable" for ~6–7 turns before dropping below half-peak. That's the tactical window.
+- **Lie detection (the payoff):** each agent cross-references the opponent's scent map against the opponent's verbal hint. Example: the thief says "I moved north," but the entire scent mass sits in the south-east and the north reads τ=0.00. Expected fresh trail in the north would be ≈ 0.9·0.9 ≈ 0.81; measured 0.00. The cop concludes (high confidence) the thief lied, lowers the trust weight on verbal hints, and steers toward the real scent source. The manipulation backfires.
+- **RULE 23:** the scent emission+decay model must be **cryptographically locked before each series** — both groups exchange the full formula + a concrete numeric example, verify identical interpretation, then hash it (e.g. SHA-256 of formula+example). Any later deviation is detectable and voids the game. (You may even share the scent-mechanism code between groups to guarantee identical behavior.)
+
+---
+
+## 6. Bayesian belief map (Ch6 — needed for README component #3)
+
+This, plus move selection, is where the agent's intelligence lives.
+
+- Each agent maintains a **belief matrix** `b(s) = P(opponent = cell s)` over the whole grid (the cop's belief is over the thief; the thief holds a symmetric belief over the cop; barrier cells have zero belief).
+- On each incoming observation, apply **Bayes' rule** to update `b(s)` from the two evidence sources: the (unfakeable) **scent map** and the (possibly-false) **verbal hint** — combined into a posterior. The scent likelihood is trustworthy; the hint's weight should be discounted when it contradicts the scent.
+- **Move policy** (the graded core) minimizes/maximizes **Manhattan distance** (orthogonal grid) to the arg-max belief cell:
+  - **Cop:** move to minimize Manhattan distance to `arg maxₛ b(s)` (chase the most-likely thief cell); when blind, drop a barrier.
+  - **Thief:** move to maximize distance from its believed cop cell (flee toward open space).
+- Allowed policy families (your choice, stated in the README):
+  1. **Pure heuristic** — `Bayes + Manhattan` (transparent, zero-token, robust). You can even skip Bayes and just chase the strongest scent cell.
+  2. **LLM-mapped policy** — the LLM outputs a move (risky; see rule 25 — blind reliance causes hallucinated illegal moves → loss).
+  3. **Q-Learning / Bellman** — *optional*, for groups that want RL; include learning curves in the README if used.
+- The belief map is displayed as a **heatmap in the live GUI** (a required screenshot).
+
+---
+
+## 7. Commit-Reveal cryptographic protocol (Ch5, Appendix E group 3)
+
+This replaces the referee. In a refereeless P2P game there are three cheats to kill: **time-travel** (change a done move), **change-after-seeing** (adapt after the opponent reveals), and **denial** (disown a past move/claim). The fix is mathematical, not social.
+
+**Every game step, each agent runs 4 crypto stages, in order:**
+
+1. **Commit** — choose the physical move + the hint to send (including an `Intent` flag = is the hint `truth` or `lie`), draw a fresh **Nonce**, hash everything into a single digest, and send **only the digest `H_commit`** (not its contents):
+
+```
+H_commit = SHA256( State ‖ Move ‖ Intent ‖ Nonce )
+```
+
+   `‖` = byte concatenation. In the reference impl this is done via **canonical JSON** (`sort_keys=True`, fixed separators) so both peers hash byte-identical input. The real sealed record is richer than these four fields — it also includes the verbal hint, intent class, step number, and role.
+2. **Acknowledge** — the opponent confirms receipt and locks onto the commitment (prevents the sender from retracting; ensures reveal happens only after both sides have locked).
+3. **Reveal** — send the `Move` + the hint sentence. **The Nonce stays hidden** (prevents reverse-engineering the signatures prematurely).
+4. **Final Audit** — **only at the end of the whole game** are all Nonces revealed, for full mutual verification.
+
+**Nonce** (number-used-once): a fresh random string per commitment. It (a) makes repeated identical actions hash differently and (b) defeats a dictionary attack on the small move space. **Keep it absolutely secret until the final audit** (rule 18).
+
+**Reference implementation:**
+
+```python
+import hashlib, json, secrets
+
+def commit(state: str, move: str, intent: str) -> tuple[str, str]:
+    nonce = secrets.token_hex(16)                       # cryptographic nonce
+    payload = json.dumps(
+        {"state": state, "move": move, "intent": intent, "nonce": nonce},
+        sort_keys=True, separators=(",", ":"),          # CANONICAL JSON
+    )
+    h_commit = hashlib.sha256(payload.encode("utf-8")).hexdigest()
+    return h_commit, nonce                              # send h_commit now; keep nonce secret
+
+def verify(state, move, intent, nonce, h_commit) -> bool:
+    payload = json.dumps(
+        {"state": state, "move": move, "intent": intent, "nonce": nonce},
+        sort_keys=True, separators=(",", ":"),
+    )
+    recomputed = hashlib.sha256(payload.encode("utf-8")).hexdigest()
+    return secrets.compare_digest(recomputed, h_commit)  # any mismatch = tampering
+```
+
+Use `secrets` (not `random`) and `secrets.compare_digest` for the comparison.
+
+**Mutual audit & the iron law (rules 19–22):** at game end each side re-hashes the opponent's revealed `(State, Move, Intent, Nonce)` and compares to the originally-committed `H_commit`. **Any mismatch = provable forgery = technical loss (score 0) for the cheater, regardless of the board result.** SHA-256 is bit-sensitive; there is no statistical doubt. You **must build a replay-viewer app** that steps through the log and verifies this chain, showing **"Verified OK"** (rule 20; required screenshot).
+
+### Step-0: signed hardware declaration → computational fairness (rule 24, 53)
+
+Before the first move, each agent collects its machine spec — **OS, CPU cores/frequency, RAM, GPU/VRAM presence, and LLM model name** — plus **code version, group name, sub-game number, and the GitHub commit hash played**, packs it into JSON, and **signs it cryptographically with a pre-supplied key** (can't be forged after the fact). Token consumption is likewise monitored and locked. This enables **computational fairness**: the lecturer applies a normalization that *rewards efficient algorithms achieving good results on modest hardware* — a fast solution on a laptop beating a heavy one on a server is the win. **The commit hash must appear in Step-0 AND in the end-game JSON** (field `github_commit`); you may change code between games but must update the hash each time.
+
+---
+
+## 8. The verbal / deception layer (Ch4, Appendix F tables 14 & 21)
+
+- **Free natural language only** (rule 26). **Numeric-location protocols are forbidden** (rule 27) — you can't just send coordinates; the psychological bluff/counter-bluff is the point.
+- **Hint word limit:** 15 words per hint (negotiable), enforced for both template mode and LLM mode (told to the LLM in its system prompt).
+- **Arena:** `"New York"` (negotiable) feeds real landmarks into the hints; `""` = generic landmarks.
+- **The LLM never decides the move** — it only produces/parses the deception text and builds a behavioral profile of the opponent. The move is always Python.
+- **LLM modes** (private per peer, chosen in config `[trash_talk] provider`; a *reference table*, not part of the shared config, not negotiable):
+
+| Mode | Where it runs / cost | Setup |
+|---|---|---|
+| `template` (**default**) | In-process, pre-written sentences — **0 tokens** | none |
+| `ollama` | Local model at `localhost:11434` — **0 API tokens** | install Ollama + pull a model |
+| `claude_api` | Small cloud model (Haiku) via API — **real tokens counted** against the series budget | Anthropic API key (paid) |
+| `claude_cli` | `claude -p` via the Claude Code CLI — highest cost | Claude CLI subscription |
+
+- `every_n_steps` runs the model only once every few turns to cut consumption. In `template`/`ollama` modes the whole series can run at **zero tokens**, shifting the entire contest to movement-algorithm quality.
+
+---
+
+## 9. The strategy extension point — WHERE THE GRADE IS (Ch6, Appendix F table 22)
+
+Two clearly-separated extension points in the **private** config file:
+
+- **`[strategy]`** — `police_class` / `thief_class` each point (`package.module:Class`) to **your own brain class** inheriting from `BrainBase` (`ThiefBrain` / `PoliceBrain`) and overriding:
+  - `_pick_move(...)` — your movement policy (both roles).
+  - `_decide_move(...)` — for the **cop**, this also chooses the **barrier** placement.
+  - Leave the section empty → the reference impl's built-in heuristic brain runs.
+- **`[trash_talk]`** — how deception text is produced (the LLM modes above; default `template`, zero tokens).
+
+Full detail goes in `docs/STRATEGY.md`. **The move is always computed in Python; the LLM only touches the verbal layer.**
+
+---
+
+## 10. Mandatory parameters (Appendix F — the single source of truth)
+
+Status meanings: **Fixed** = never change (deviation = disqualification). **Minimum** = negotiable *only upward* (harder game); the shown value is the default if not agreed otherwise. **Negotiable** = agree on anything; shown value is the default.
+
+**Board / axes / start (Table 13)**
+| Param | Value | Status |
+|---|---|---|
+| Board side | 7×7 | minimum |
+| Number of agents | 2 | fixed |
+| Origin corner | top-left `(0,0)` | negotiable |
+| Axis start index | 0 | negotiable |
+| Thief start | `(3,3)` center | negotiable |
+| Cop start | `(0,0)` corner | negotiable |
+
+**Arena / hints (Table 14)**
+| Param | Value | Status |
+|---|---|---|
+| Arena | `"New York"` (`""` = generic) | negotiable |
+| Max words per hint | 15 | negotiable |
+
+**Movement / barriers (Table 15)**
+| Param | Value | Status |
+|---|---|---|
+| Move set | 4 orthogonal + stay, **no diagonals** | fixed |
+| Barrier quota (cop) | 14 | minimum |
+| Move ceiling per sub-game | 35 | minimum |
+| Survival threshold (thief) | 35 | minimum |
+
+**Scent (Table 16 — all fixed)**
+| Param | Value |
+|---|---|
+| Source intensity | 0.9 |
+| Decay rate ρ | 0.10 |
+| Emission field | 5×5 |
+
+**Scoring (Table 17 — all fixed):** capture cop 20 / thief 5; survival cop 5 / thief 10; tie 2 each.
+
+**League (Table 18)**
+| Param | Value | Status |
+|---|---|---|
+| Sub-games per series | 6 | fixed |
+| Diversity reward (win vs new opponent) | 10 | fixed |
+| Min games to pass | 2 | fixed |
+| Token budget per series | ~200,000 (reported by email) | negotiable |
+| Max counted games per group | 10 | fixed |
+
+**Gatekeeper / rate-limit (Table 19)**
+| Param | Value | Status |
+|---|---|---|
+| Requests/min | 30 | minimum |
+| Parallel requests | 2 | minimum |
+| Retry delay after error | 5 s | minimum |
+| Retries before failure | 3 | minimum |
+| Queue depth under load | 100 | minimum |
+| Per-request timeout | 30 s | negotiable |
+| Watchdog freeze threshold | 60 s | negotiable |
+
+**Config rules:** every value defined in config, **identical between both groups, cryptographically locked**. Config may be renegotiated per game. Name each config file per-game (`config_<game_id>_g<NN>.json`) and commit it to the repo. Email the commit hash used for each game.
+
+---
+
+## 11. The four JSON files (Ch9, Appendix F table 20)
+
+All four share a common `game_uid`; filenames derive from `game_id` + sub-game number `<NN>` so files from different games never mix.
+
+| Variable | Filename | Role / contents |
+|---|---|---|
+| Declaration | `declaration_<game_id>.json` | Pre-game, cryptographically signed: both teams + members, both repo URLs, both MCP URLs, hardware specs, LLM model, agreed token cap, start/end times — everything that doesn't change during the game. |
+| Config | `config_<game_id>_g<NN>.json` | The agreed sub-game parameters (Appendix F), cryptographically locked, identical both sides. |
+| Log | `log_<game_id>_g<NN>.json` | Step-by-step: Commit-Reveal commitments, moves, hints, LLM discussion fields, Nonces, hashes — enables full cryptographic verification in the replay simulator. |
+| **Result** | `result_<game_id>.json` | Final results: each group's score per sub-game + cumulative — **this is the mandatory JSON attachment emailed to the lecturer for league scoring.** Must include both groups' GitHub links (4 total), each sub-game's commit hash, and total tokens consumed. |
+
+**Addresses (from Appendix F):**
+- **General / repo sharing:** `rmisegal@gmail.com`
+- **Agent auto-reports (the JSON email target):** `rmisegal+uoh26finalgame@gmail.com`
+- **Reference repo (learning only):** `github.com/rmisegal/Game-P2P-Cop-Chase`
+
+---
+
+## 12. League, reporting & the Gatekeeper (Ch9, Appendix E groups 4–5)
+
+- **Live league**, not a closed lab: you face other groups' agents in real time. **Diversity reward** (10) for beating a *new* opponent; **only one counted game per opponent** (warm-ups allowed and encouraged); **≥2 games vs different groups to pass**; **≤10 counted games**. Declare truthfully, at each game's start, how many counted games you've already played (false declaration = disqualification).
+- **Computational fairness** (§7) reweights scores to reward algorithmic efficiency over raw hardware.
+- **Automatic reporting via Gmail API** (rules 32–35): at the end of each legal game, **each group's agent independently** emails the signed **result JSON** (JSON attachment — *never* free text, else score 0) to the agent-reports address. **Mutual agreement is the main anti-fraud rule: both groups must agree on the result and each send a separate report; a missing or contradictory report → game disqualified, 0 to BOTH groups.** Perform a **comprehensive mutual log audit** before agreeing on the shared result.
+- **OAuth 2.0 with send-only scope** (rule 30). Full setup in Appendix A. Never commit `credentials.json` / `token.json` (rules 39–40).
+- **The Gatekeeper** (rules 28–29; three cumulative gates in front of Gmail, "fail fast"):
+  1. **Quota Manager** — daily safety cap; the last line before account suspension.
+  2. **Token-bucket rate limiter** — `tokens ← min(C, tokens + r·Δt)`, `allow ⟺ tokens ≥ 1`. Smooths bursts to avoid HTTP 429. *(These are rate tokens, unrelated to LLM tokens.)*
+  3. **DOS detector** — spots an infinite loop / abnormal send pattern and **locks** the API path entirely (circuit-breaker / backpressure) to save the account.
+- On **HTTP 429**: back off and wait for the next window — never retry blindly (risks account suspension).
+- **Three distinct meanings of "token"** — don't conflate: *rate tokens* (bucket), *LLM tokens* (metered + locked in Step-0), *OAuth tokens* (Gmail auth).
+
+---
+
+## 13. Submission requirements (Ch9 §4, Appendix C, Appendix E group 5)
+
+The submission is a full, reproducible development artifact — not a source file.
+
+- **Two GitHub repos** — one Cop, one Thief — each accessible to the lecturer (public, or private shared with `rmisegal@gmail.com`).
+- **Cross-link:** each repo's README links to the other repo. **Two links** go in the Moodle submission; **four links** (both groups' cop+thief) go in the result JSON.
+- **Annotated git tag** freezing the submission commit:
+  ```bash
+  git tag -a v1.0-submission -m "Final submission: Police-Thief P2P, group N"
+  git push origin v1.0-submission
+  ```
+- **Each repo must contain at least** (rule 50): `README.md`, `config/`, the **PRD** files, a **PLAN** file, and **TODO** files — they tell the development story, not just the result.
+- **README = an academic report** with these **mandatory components** (missing any one hurts the grade):
+  1. **Dec-POMDP formalism** — your state space, observations, uncertainty (§3).
+  2. **FastMCP orchestration dilemmas** — turn management, network-failure handling, Gatekeeper/Orchestrator roles.
+  3. **Strategies implemented** — heuristics (Manhattan, Bayesian belief), LLM policy, or optional Q-Learning.
+  4. **Learning curves** — if RL was used, empirical convergence evidence.
+  5. **Screenshots — absolutely mandatory:** the **Live GUI belief map** AND the **Replay app showing "Verified OK"**.
+  6. **Link to the companion repo.**
+- **≥2 games vs different groups**; **both groups email separately** (rule 49, 52).
+- **No secrets in the repo, ever** — `.gitignore` `credentials.json`, `token.json`, any keys. A leaked secret is compromised permanently (Git history).
+- **Moodle:** download the submission form, fill it, save as PDF (don't move/rename fields); **submit per group member**; enter a **unique 8-character group code (no spaces)**.
+- **Self-score is for CODE QUALITY only** (rule 55) — not the league result.
+
+**Submission checklist (Appendix C, Table 6):** two accessible repos ✓ · cross-link + two links ✓ · `v1.0-submission` tag pushed ✓ · README components complete in both repos ✓ · belief-map screenshot ✓ · Replay "Verified OK" screenshot ✓ · ≥2 games vs different groups ✓ · both sides emailed separately ✓ · no secrets committed (.gitignore verified) ✓.
+
+---
+
+## 14. The 7-stage development roadmap (Ch10 — build in this order)
+
+**Build in layers; each stage runs end-to-end before the next is added. One PRD file per stage.** Skipping foundations (e.g. jumping to crypto before the network is proven) makes every bug a multi-variable investigation.
+
+1. **Base Logic** (Ch3) — grid (7×7), movement rules, barrier quota, coordinate-overlap capture. **Single process, no networking, no AI.** If two agents can't move correctly on a local board, networking is pointless.
+2. **Basic FastMCP infrastructure** (Ch2) — split into separate processes; stand up the servers; tools exchange **pure numeric geometry over localhost**. Goal: prove the pipe works (a message from one agent reaches the other) before loading complex content.
+3. **Blind strategy** (Ch6) — wire an initial decision module on **full, exact information** (no scent/language/deception yet): heuristic (Manhattan / Bayesian belief), LLM-mapped policy, or optional Q-Learning/Bellman. Isolates decision-core correctness from uncertainty noise.
+4. **Language + Scent** (Ch4 + Ch6) — **the big leap.** Replace rigid coordinates with **free-language** reporting; implement the **pheromone emission/decay equations**; plug the **LLM in for inference + lie-crafting**. This is where the project's core uncertainty is born; it comes only after infra + logic are proven.
+5. **Cloud + Tunnel** (Ch2) — move from localhost to **public addresses via ngrok/Localtonet**; connect agents on remote machines. Now it's a real distributed system (latency, disconnects).
+6. **Security + Crypto** (Ch5) — wrap the proven remote comms in **Commit-Reveal**, write the **Nonce generator**, add **Step-0 hardware declarations**. Crypto sits *on top of* comms already proven reliable — so a failure is never ambiguous between "network" and "crypto".
+7. **Reporting + Visualization shell** (Ch9 + Ch7 + Appendix A) — **Gmail API over OAuth 2.0**, finish the **GUI**, polish the **Replay app**. Built last because it consumes every layer beneath it.
+
+*(The reference repo demonstrates local versions of stages 1–4 and 6–7.)*
+
+---
+
+## 15. Code architecture & file layout (mirror the reference repo)
+
+Layered architecture (each Python file **≤150 lines**, `pytest` alongside, **all config external**, `config/police/` vs `config/thief/` fully separated):
+
+- **Interface** — Tkinter GUI/CLI: a **live window** + a **Replay app**. (Live window shows LOCAL truth only — never the full board.)
+- **SimulationSdk** — the single business entry point.
+- **PeerRuntime** — one independent peer's lifecycle: **negotiation → turn loop → audit**.
+- **domain** — board, scent, belief, state, rules, cryptography, negotiation, protocol, and the decision "brain".
+- **infra** — LLM providers (template/ollama/cloud/CLI), **MCP transport to the opponent's server**, and the email sender.
+- **shared** — config manager, rate-limiter, system-info, version.
+
+Minimal server skeleton (each agent runs its own):
+
+```python
+from fastmcp import FastMCP
+mcp = FastMCP("police_thief_peer")
+
+@mcp.tool
+def receive_move(signed_move: str, signature: str) -> dict:
+    """Opponent (as client) submits a cryptographically signed move; verify before accepting."""
+    is_valid = verify_signature(signed_move, signature)
+    return {"accepted": is_valid, "move": signed_move if is_valid else None}
+
+if __name__ == "__main__":
+    mcp.run(transport="http", host="0.0.0.0", port=8000)  # bind so a tunnel can expose it
+```
+
+Run pattern:
+```bash
+uv sync
+uv run python -m police_thief peer --role police   # terminal 1
+uv run python -m police_thief peer --role thief     # terminal 2
+uv run python -m police_thief replay --log logs/police_match.json
+```
+
+Also expected in `docs/`: `RESEARCH-REPORT-Performance-Analysis.md` (analyze LLM-call volume per series vs provider rate limits, and how the fallback guarantees each sub-game finishes even when a provider is blocked) and `STRATEGY.md`.
+
+---
+
+## 16. The 55 mandatory rules — condensed checklist (Appendix E)
+
+Group them and enforce each; sanctions range from technical loss to full disqualification.
+
+- **Network/decentralization (1–10):** two separate processes; no shared state; single Orchestrator entry; proper state machine rejecting illegal transitions; timeout tracking; watchdog; **live UI = local truth only**, never the full board; mandatory tunneling.
+- **Mechanics (11–16):** byte-identical config both sides; raise minimums only by agreement (never lower); orthogonal only, no diagonals; declare every barrier truthfully; never lie about barrier location.
+- **Crypto (17–24):** SHA-256 Commit-Reveal; Nonce secret till end; **any hash mismatch = score 0**; build the replay verifier; truthful capture declaration; **lock the scent model + sign the hardware declaration before the game**.
+- **Strategy/network (25–30):** *(recommendation)* don't let the LLM decide the move; free NL only; **no numeric-location protocol**; token-bucket for Gmail; DOS detector; **send-only Gmail scope**.
+- **League/admin (31–45):** min games vs different groups; auto JSON email; JSON not free text (else 0); **mutual agreement + separate reports (mismatch = both get 0)**; mutual log audit; truthful game-count; never push secrets; `.gitignore` them; annotated git tag; academic README; Moodle form (unchanged fields) per member; 8-char group code.
+- **Additions (46–55):** barrier-on-thief = capture; jailed thief = capture; score per table (20/5, 5/10, 0/0); two repos + cross-link + 4 JSON links; each repo has README+config+PRD+PLAN+TODO; email results to the agent-reports address; one counted game per opponent (warm-ups allowed); commit hash in Step-0; total tokens in the end JSON; **self-score for code quality only**.
+
+---
+
+## 17. First actions for you (Claude Code)
+
+1. **Re-anchor the skeleton.** You started from HW6 — good, but restructure toward the two-process / two-repo / P2P model in §1's diff. Plan two deliverable repos (cop, thief) with a shared codebase but **separate config dirs and separate processes**; never share live state between roles.
+2. **Set up the config as the physics contract** (Appendix F values, per-game filenames, cryptographic lock, byte-identical). Origin/index/start negotiable-but-matching; move-set/scent/scoring fixed.
+3. **Follow the 7-stage order** (§14), one PRD per stage, each running end-to-end before the next. Do **not** build crypto or cloud before base logic + localhost MCP are proven.
+4. **Reuse from HW6:** grid/movement/barrier/capture logic (adapt to 7×7, quota 14, new barrier-placement + capture rules), the turn loop, config-driven design, the docs discipline. **Build new:** the P2P symmetric server+client, scent emission/decay + Bayesian belief, Commit-Reveal + Nonce + audit + replay verifier, Step-0 hardware declaration, Gatekeeper (quota/token-bucket/DOS), Gmail OAuth send-only, the four JSON files, the two-repo submission + tag.
+5. **Put the grade-bearing logic behind the `[strategy]` extension point** (`BrainBase`/`ThiefBrain`/`PoliceBrain`, `_pick_move`/`_decide_move`), keep the LLM strictly on the verbal layer, and make sure `template` mode plays the whole series at zero tokens.
+6. **Study, don't copy, the reference repo** `github.com/rmisegal/Game-P2P-Cop-Chase` — where it conflicts with the book or Appendix F, the **book + Appendix F win**.
+
+**Remember the framing (rule from Appendix C):** this is *systems engineering under real network conditions*, judged on Coordination, Adaptation, Integrity, and Architecture — not on one clever algorithm.
