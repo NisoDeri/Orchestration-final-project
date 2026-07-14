@@ -15,7 +15,6 @@ we refuse to start instead, naming the term and the file (ConfigError).
 
 from __future__ import annotations
 
-import hashlib
 import json
 import tomllib
 from pathlib import Path
@@ -125,14 +124,15 @@ class ConfigManager:
         return f"config_{game_id}_g{sub_game:02d}.json"
 
     def config_sha256(self) -> str:
-        """SHA-256 over the canonical bytes of the SOURCE game.json content.
+        """SHA-256 of the canonical AGREED WIRE TERMS — the byte-identical config lock.
 
-        Per the INTEROP G5 note this hashes the FULL loaded game.json dict
-        (sorted keys, compact separators, ``ensure_ascii=False``) — stable
-        across loads, and identical on both peers iff their agreed files are
-        value-identical.
+        Hashes ONLY the negotiated terms (``build_terms`` = the reference's
+        ``terms_from_config`` 14-key set), NOT our local-only blocks (setting, num_games,
+        crypto ``_note``, network) — so the mutual-agreement SHA reproduces byte-for-byte
+        on a reference partner (review fix; a full-tree hash could never cross-match).
+        The import is lazy: ``negotiation`` imports us, so a module-level import would cycle.
         """
-        canonical = json.dumps(
-            self._game, sort_keys=True, ensure_ascii=False, separators=(",", ":")
-        )
-        return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+        from pursuit.domain.crypto.canonical import canonical_bytes, sha256_hex
+        from pursuit.domain.negotiation import build_terms
+
+        return sha256_hex(canonical_bytes(build_terms(self)))
