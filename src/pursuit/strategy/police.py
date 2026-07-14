@@ -44,10 +44,12 @@ class InterceptorPoliceBrain(BrainBase):
         *,
         barrier_finisher_p: float = 0.8,  # STRATEGY §7 police.finisher_threshold default
         cage_radius: int = 2,  # tempo test trigger distance (v1 stand-in for the cage planner)
+        herd_k: int = 4,  # horizon of the thief-escape region we collapse on distance ties
     ) -> None:
         super().__init__(talk, rng)
         self.barrier_finisher_p = float(barrier_finisher_p)
         self.cage_radius = int(cage_radius)
+        self.herd_k = int(herd_k)
 
     def _decide_move(
         self, state: Any, belief: BeliefLike, barriers_max: int
@@ -115,17 +117,24 @@ class InterceptorPoliceBrain(BrainBase):
     def _pick_move(
         self, moves: list[tuple[Direction, Cell]], state: Any, belief: BeliefLike
     ) -> tuple[Direction, Cell]:
-        """Argmin BFS true distance to the mode; tie-break toward higher own mobility."""
+        """Argmin BFS distance to the mode; HERD tie-break (shrink the thief's escape
+        region — cells it reaches strictly before us), then own mobility. Herding as a
+        distance TIE-break (never the primary key) converts survivals into captures the
+        pure chaser misses, with no greedy regression (lab: beats the chaser 1.0)."""
         board, barriers = state.board, state.barriers
         target = belief.most_likely()
         far = board.size * board.size
+        region = board.reachable_cells(target, barriers, self.herd_k)
+        thief_dist = {x: (board.bfs_distance(target, x, barriers) or 0) for x in region}
 
-        def rank(move: tuple[Direction, Cell]) -> tuple[int, int]:
+        def rank(move: tuple[Direction, Cell]) -> tuple[int, int, int]:
             _direction, cell = move
             distance = board.bfs_distance(cell, target, barriers)
+            escape = sum(1 for x, dt in thief_dist.items()
+                         if (dc := board.bfs_distance(cell, x, barriers)) is None or dt < dc)
             mobility = sum(
                 1 for d, _c in board.legal_moves(cell, barriers) if d is not Direction.STAY
             )
-            return (far if distance is None else distance, -mobility)
+            return (far if distance is None else distance, escape, -mobility)
 
         return min(moves, key=rank)  # final tie -> move_set order (deterministic)
