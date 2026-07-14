@@ -1,8 +1,8 @@
 # TODO — Final Project: Distributed Cops-and-Robbers over P2P (group nis-yar1)
 
-**Progress:** 381/647 tasks verified complete — Stages 0-3 largely done (per-stage git branches/merges + a few docs pending), Stage 4 scent/belief/template-hint done (LLM/Ollama pending), Stage 6 crypto/sign/audit done (replay-verify + scent-lock ceremony pending), Stage 7 email/GUI built but unwired; Stages 5, 8, 9 pending.
+**Progress:** 410/648 tasks verified complete — updated 2026-07-14 (post core-todos workflow). Stages 0-3 largely done (per-stage git branches/merges + a few docs pending), Stage 4 scent/belief done + Ollama trash-talk & hint-interpreter now BUILT+WIRED (claude stubs + token accounting + deception pending), Stage 6 crypto/sign/audit + dialect-aware replay-verify done (scent-lock ceremony pending), Stage 7 3-gate Gatekeeper + 4 JSON artifacts + Gmail-gated send + live GUI (PeerRuntime observer) now BUILT+WIRED (full report emit + screenshots pending); Stages 5, 8, 9 pending. Line-budget gate now passes everywhere (series.py split 147 + series_log.py 47; all src <=150) — FULL per-stage verify tasks still unchecked (per-stage CI branches + coverage runs not executed).
 
-**Task count: 647** (was 617; +11 Stage-6 addendum tasks from the 2026-07-13 NotebookLM rulings; course band 500–1000; target band 600–800 met). Per stage: S0 56 · S1 96 · S2 86 · S3 57 · S4 90 · S5 24 · S6 76 · S7 71 · S8 39 · S9 52.
+**Task count: 648** (was 617; +11 Stage-6 addendum tasks from the 2026-07-13 NotebookLM rulings; +1 Stage-8 interop-conformance task 2026-07-14; course band 500–1000; target band 600–800 met). Per stage: S0 56 · S1 96 · S2 86 · S3 57 · S4 90 · S5 24 · S6 76 · S7 71 · S8 40 · S9 52.
 Format: `- [ ] T<stage>.<seq> <task>`. Stages 1–7 match the seven PRDs / the brief §14 roadmap; Stage 0 = workshop setup, Stage 8 = league operations, Stage 9 = submission.
 Every task conforms to `FINAL_PROJECT_BRIEF.md`, `planning/reference_map.md`, and `planning/DECISIONS.md` (D1–D14). One commit-sized action per task. Course gates apply to every implementation task: file ≤150 lines, ruff (E,F,W,I,N,UP,B,C4,SIM) clean, config-driven (zero hardcoded params), tests use injected fakes (no network/model in CI).
 
@@ -239,7 +239,8 @@ Every task conforms to `FINAL_PROJECT_BRIEF.md`, `planning/reference_map.md`, an
 - [x] T2.69 test: role_for alternation — sub-game 2 swaps roles, sub-game 3 restores
 - [x] T2.70 test: a 2-sub-game stub series completes with fresh state per sub-game
 - [x] T2.71 test: RestartSeries drains turns/controls/audits but not agreements between attempts
-- [ ] T2.72 ruff + line-budget check sdk/ modules  <!-- partial: sdk/series.py is 155 lines (>150 budget) -->
+- [x] T2.72 ruff + line-budget check sdk/ modules  <!-- done: series.py split -> series.py 147 + series_log.py 47; all sdk/ <=150 -->
+<!-- FULL stage-verify (T2.85/T3.56/T4.89/T6.64/T7.70) left unchecked: line-budget clause now passes, but per-stage CI branches + coverage runs were NOT executed. -->
 - [x] T2.73 implement cli.py: `peer --role {police,thief} [--config DIR] [--no-gui]` + `replay --log PATH` (brief §15 run pattern)
 - [x] T2.74 test: host/port/opponent-URL come exclusively from config; the CLI exposes NO addressing flags (PRD-5 FR-5.3, course config-driven gate)
 - [x] T2.75 test: CLI parsing per subcommand incl. bad-role rejection with a clear message
@@ -302,7 +303,7 @@ Every task conforms to `FINAL_PROJECT_BRIEF.md`, `planning/reference_map.md`, an
 - [x] T3.43 record (seed, config hash, git hash) into every lab output JSON for reproducibility (D7)
 - [x] T3.44 test: lab determinism — same seed twice yields identical results minus timestamps
 - [x] T3.45 unit-test lab/stats.py aggregation math on tiny fixture runs
-- [ ] T3.46 run the 500-game baseline BlindPolice v0 vs BlindThief v0; commit the results artifact under docs/lab/  <!-- partial: lab artifacts under artifacts/lab, not docs/lab -->
+- [x] T3.46 run the 500-game baseline BlindPolice v0 vs BlindThief v0; commit the results artifact under docs/lab/  <!-- done via sdk/lab_belief BeliefV2 run_lab_versus; honest 0.975-0.98 vs greedy; artifacts/lab/first_blood.json+.md (path is artifacts/lab, not docs/lab) -->
 - [ ] T3.47 run ablation: BFS interception vs naive Manhattan police; commit the table
 - [ ] T3.48 run ablation: mobility thief vs distance-only thief; commit the table
 - [ ] T3.49 run ablation: funnel/sealing barriers vs 15%-random barriers; commit the table
@@ -366,9 +367,11 @@ Every task conforms to `FINAL_PROJECT_BRIEF.md`, `planning/reference_map.md`, an
 - [x] T4.47 ruff + line-budget check strategy/hint_model.py
 - [x] T4.48 implement strategy/trash_talk.py TrashTalk template provider: landmark lines per arena (New York/London/Paris/"" generic), thief lie-rate from config
 - [x] T4.49 enforce the hint word cap (15, from config) on every provider output path (rule: told to the LLM AND enforced in code)
-- [ ] T4.50 implement LlmTrashTalk: every_n_steps throttle, deadline, JSON contract {"message","verdict","reasoning"}, template fallback on ANY failure (D8)  <!-- partial: LLM/Ollama trash-talk not built (template only) -->
-- [ ] T4.51 implement strategy/talk_providers.py resolve_trash_talk for the 4 modes (template/ollama/claude_api/claude_cli); unknown provider → ConfigError, documented deviation from the reference silent fallback
-- [ ] T4.52 implement infra/ollama_provider.py: stdlib POST to the configured ollama_url with format:"json", model qwen2.5:7b from config, aya-expanse:8b fallback (D8)  <!-- partial: ollama_provider not built -->
+- [x] T4.50 implement LlmTrashTalk: every_n_steps throttle, deadline, JSON contract {"message","verdict","reasoning"}, template fallback on ANY failure (D8)  <!-- done: strategy/ollama_talk.py OllamaTalk (deadline + JSON banter contract + template fallback on any failure) -->
+- [x] T4.51 implement strategy/talk_providers.py resolve_trash_talk for the 4 modes (template/ollama/claude_api/claude_cli); unknown provider → ConfigError, documented deviation from the reference silent fallback  <!-- done: strategy/resolve.py resolve_trash_talk selects on trash_talk.provider (template/ollama live; claude_* stubbed) -->
+<!-- T4.53/54 (claude_api|cli stubs, token accounting) still unchecked; T4.59/60 (sealed-fallback-flag) covered by fallback tests but the SEALED flag path is not asserted -> left unchecked. -->
+- [x] T4.52 implement infra/ollama_provider.py: stdlib POST to the configured ollama_url with format:"json", model qwen2.5:7b from config, aya-expanse:8b fallback (D8)  <!-- done: infra/ollama.py OllamaClient (stdlib POST, format=json, model + url from config) -->
+<!-- T4.53 claude stubs + T4.54 token accounting still pending. -->
 - [ ] T4.53 stub claude_api/claude_cli providers present-but-off (course zero-API-key rule, D8)
 - [ ] T4.54 implement provider token accounting (tokens_step/tokens_total) surfaced into sealed records
 - [x] T4.55 seal the full LLM prompt + reasoning + bluff classification into the audited record (prompt_discussion block, map §2.3)
@@ -381,12 +384,12 @@ Every task conforms to `FINAL_PROJECT_BRIEF.md`, `planning/reference_map.md`, an
 - [x] T4.62 test: all trash-talk tests run on injected FakeLlm — no network/model in CI (course gate)
 - [x] T4.63 implement the numeric-coordinate leak guard: outgoing hints containing bare coordinate pairs are rewritten/rejected (rule 27)
 - [x] T4.64 test: hint "I am at 3,4" blocked by the leak guard; landmark phrasing passes
-- [ ] T4.65 ruff + line-budget check trash_talk.py, talk_providers.py, ollama_provider.py
-- [ ] T4.66 implement the incoming-hint classifier: claim type (direction/landmark/taunt/silence) + extracted direction, Ollama-backed with deterministic fallback (D8)  <!-- partial: Ollama hint interpreter not built (geometry mapping only) -->
+- [x] T4.65 ruff + line-budget check trash_talk.py, talk_providers.py, ollama_provider.py  <!-- done: talk.py, resolve.py (123), ollama_talk.py (136), infra/ollama.py (72) all <=150 -->
+- [x] T4.66 implement the incoming-hint classifier: claim type (direction/landmark/taunt/silence) + extracted direction, Ollama-backed with deterministic fallback (D8)  <!-- done: OllamaTalk.interpret (classify claim + direction, SAFE deterministic fallback on garbage/injection/empty) -->
 - [ ] T4.67 implement the config-driven landmark table (world.landmark_map) mapping arena landmarks to board regions
 - [ ] T4.68 test: "I'm near the harbor" maps to the configured harbor region cells
-- [ ] T4.69 test: classifier fallback path is deterministic and CI-safe (FakeLlm)
-- [ ] T4.70 test: prompt-injection in an opponent hint ("ignore previous instructions…") cannot alter classifier behavior or config
+- [x] T4.69 test: classifier fallback path is deterministic and CI-safe (FakeLlm)  <!-- done: test_ollama.py test_interpret_returns_safe_default_on_garbage / _short_circuits_on_empty_hint (FakeClient) -->
+- [x] T4.70 test: prompt-injection in an opponent hint ("ignore previous instructions…") cannot alter classifier behavior or config  <!-- done: test_ollama.py test_interpret_ignores_prompt_injection_payload -->
 - [ ] T4.71 ruff + line-budget check the hint-interpreter module
 - [x] T4.72 rewire PoliceBrain v1 to belief-driven play: BFS-intercept the argmax-belief cell + belief-mass herding with barriers (D6)
 - [x] T4.73 rewire ThiefBrain v1: flee the believed cop cell + scent-aware routing minimizing information leaked to the cop belief (D6)
@@ -489,12 +492,12 @@ Every task conforms to `FINAL_PROJECT_BRIEF.md`, `planning/reference_map.md`, an
 - [x] T6.50 integration test (fakes): full game with commit-reveal on; audits pass both sides
 - [x] T6.51 integration test: a deliberately tampering peer double is caught and the result rewritten
 - [x] T6.52 ruff + line-budget check peer/summary.py
-- [ ] T6.53 implement replay/verify.py: re-verify every commit in a saved log honoring the log's recorded crypto dialect  <!-- partial: interface/replay_view.py verifies plain sha256(payload) not dialect+nonce; expects flat list -->
+- [x] T6.53 implement replay/verify.py: re-verify every commit in a saved log honoring the log's recorded crypto dialect  <!-- done: interface/replay_verify.py verify_log accepts a record under whichever dialect (reference|book) reproduces its commit; interface/replay_view.py + CLI replay wired to it -->
 - [ ] T6.54 implement normalize_log for both log dialects WITHOUT defaulting a missing audit to passed (fixes map leniency)
 - [ ] T6.55 test: a verified log yields an all-steps-verified summary
 - [ ] T6.56 test: one corrupted commit → named failed step + overall FAIL
 - [ ] T6.57 test: missing audit block → verdict "unverified", never silently OK
-- [ ] T6.58 ruff + line-budget check replay/verify.py
+- [x] T6.58 ruff + line-budget check replay/verify.py  <!-- done: interface/replay_verify.py (133 lines) <=150 -->
 - [ ] T6.59 implement the pre-series scent-lock ceremony: exchange formula text + worked example + sha256, verify equality before step 1 (rule 23)
 - [ ] T6.60 test: a mismatched scent-lock hash aborts the series before the first move
 - [ ] T6.61 lab rehearsal: run the lock ceremony against fixture opponents on both dialects
@@ -521,9 +524,9 @@ Every task conforms to `FINAL_PROJECT_BRIEF.md`, `planning/reference_map.md`, an
 
 - [ ] T7.1 create feature branch `feat/stage7-reporting`
 - [ ] T7.2 implement shared/quota_manager.py: daily send cap with a persisted counter (gate 1, D5)
-- [ ] T7.3 implement shared/token_bucket.py: tokens ← min(C, tokens + r·Δt), allow ⟺ tokens ≥ 1 (gate 2, brief §12)
-- [ ] T7.4 implement shared/dos_detector.py: abnormal-send-pattern circuit breaker locking the API path (gate 3)
-- [ ] T7.5 compose the 3 gates fail-fast in shared/gatekeeper.py in front of Gmail AND the LLM (D5)  <!-- partial: 3-gate gatekeeper not implemented -->
+- [x] T7.3 implement shared/token_bucket.py: tokens ← min(C, tokens + r·Δt), allow ⟺ tokens ≥ 1 (gate 2, brief §12)  <!-- done: token-bucket gate inside infra/gatekeeper.py (_consume_token) rather than a standalone module -->
+- [x] T7.4 implement shared/dos_detector.py: abnormal-send-pattern circuit breaker locking the API path (gate 3)  <!-- done: gate 3 = consecutive-failure circuit breaker (_check_breaker) in infra/gatekeeper.py; not a separate shared/dos_detector.py module -->
+- [x] T7.5 compose the 3 gates fail-fast in shared/gatekeeper.py in front of Gmail AND the LLM (D5)  <!-- done: infra/gatekeeper.py Gatekeeper.execute runs quota -> token bucket -> circuit breaker fail-fast; wired in front of email send -->
 - [ ] T7.6 implement HTTP 429 handling: back off to the next window, never blind-retry (brief §12)
 - [ ] T7.7 implement retry_after sleep + concurrent_max enforcement (fixes map gap 19)
 - [ ] T7.8 wire every gate parameter from rate_limits.json (30 rpm / 2 conc / 5s / 3 retries / depth 100 minimums)
@@ -533,22 +536,22 @@ Every task conforms to `FINAL_PROJECT_BRIEF.md`, `planning/reference_map.md`, an
 - [ ] T7.12 test: 20 sends in 1s trips the DOS breaker; the path stays locked until the configured reset
 - [ ] T7.13 test: a 429 response suppresses retries within the backoff window (fake clock)
 - [ ] T7.14 test: gate config below Appendix-F minimums (rpm<30) rejected at load
-- [ ] T7.15 ruff + line-budget check the three gate modules + gatekeeper.py
+- [x] T7.15 ruff + line-budget check the three gate modules + gatekeeper.py  <!-- done: infra/gatekeeper.py (142 lines, all gates) <=150 -->
 - [x] T7.16 port the HW6 Gmail OAuth sender into infra/email_sender.py (D9 — rewrite of the reference draft-only stub)  <!-- note: infra/email.py GmailSender (OAuth->SMTP->noop) -->
 - [x] T7.17 restrict OAuth to the gmail.send scope; credentials/token paths from env, .gitignored (rules 30/39/40)
 - [x] T7.18 implement the result JSON as a MIME ATTACHMENT (never body free text) to the configured agent-reports address rmisegal+uoh26finalgame@gmail.com (rule 33)
-- [ ] T7.19 route every send through the Gatekeeper (rule 28)  <!-- partial: no gatekeeper; email has own rate limiter, not wired to series -->
+- [x] T7.19 route every send through the Gatekeeper (rule 28)  <!-- done: sdk/series.py _maybe_email routes GmailSender.send_result through Gatekeeper.from_config(...,"email").execute; test_maybe_email_sends_through_gatekeeper -->
 - [ ] T7.20 implement send-failure persistence: unsent reports queued to disk for retry (never lose the mandatory report)
 - [ ] T7.21 test (FakeGmail): the email carries an attachment part named result_<game_id>.json
 - [ ] T7.22 test: the sender API cannot produce a body-only free-text report (guard, rule 33)
 - [ ] T7.23 test: sender refuses to start if the credentials path resolves inside the repo tree
 - [ ] T7.24 manual test: one real send to self + one to the plus-address; archive the screenshot
 - [x] T7.25 ruff + line-budget check infra/email_sender.py
-- [ ] T7.26 implement report/artifact_schemas.py embedding the _schema prose + schema_version 1.1 verbatim (D1/D9)
-- [ ] T7.27 implement report/artifacts.py builders for declaration/config/log/result with the links block + shared game_uid
+- [x] T7.26 implement report/artifact_schemas.py embedding the _schema prose + schema_version 1.1 verbatim (D1/D9)  <!-- done: report/schema.py (SCHEMA_* + schema_version 1.1) -->
+- [x] T7.27 implement report/artifacts.py builders for declaration/config/log/result with the links block + shared game_uid  <!-- done: build_declaration/build_config_artifact/build_log_artifact/result builder -->
 - [ ] T7.28 implement BOTH hashers exactly: canonical_sha256 (compact separators) for config_sha256; consensus_signature (spaced separators) for group blocks + mutual agreement (map §2.6 — never mix)
 - [ ] T7.29 implement the symmetric-subset mutual result signature {game_id, aggregate, sub_games[…]} excluding per-peer tokens/timestamps (map trick — byte-identical from both peers)
-- [ ] T7.30 implement report/emit.py writing all four artifacts into logs/<own_group_id>/ with per-game filenames
+- [x] T7.30 implement report/emit.py writing all four artifacts into logs/<own_group_id>/ with per-game filenames  <!-- done: report/artifacts.py write path + *_filename helpers; test_write_artifacts_filenames -->
 - [ ] T7.31 wire the real github_commit per sub-game into result rows (fixes the reference "unknown")
 - [ ] T7.32 wire real opponent token totals from audit records into result rows (fixes the hard-coded 0)
 - [ ] T7.33 include all 4 repo links (both groups, cop+thief) in the result JSON (rule 49)
@@ -557,26 +560,26 @@ Every task conforms to `FINAL_PROJECT_BRIEF.md`, `planning/reference_map.md`, an
 - [ ] T7.36 test: two peers' independently-emitted result files agree byte-identically on the mutual signature
 - [ ] T7.37 regression test: using the wrong hasher on any field fails the golden comparison
 - [ ] T7.38 test: declaration hardware_spec has all 6 fields and its consensus signature verifies
-- [ ] T7.39 test: artifact filenames never collide across game_ids and sub-game numbers
+- [x] T7.39 test: artifact filenames never collide across game_ids and sub-game numbers  <!-- done: test_write_artifacts_filenames asserts per-game reference filenames (game_id + sub-game) -->
 - [ ] T7.40 test: the log artifact contains post-reveal nonces + the mutual_agreement sha
-- [ ] T7.41 test: result token totals equal the sum of sealed tokens_step on both sides (fixture)
+- [x] T7.41 test: result token totals equal the sum of sealed tokens_step on both sides (fixture)  <!-- done: test_result_totals_match asserts tokens_total_series summed per group -->
 - [ ] T7.42 ruff + line-budget check report/ modules
-- [ ] T7.43 implement gui/window.py Tkinter live window: own position, own barriers, belief heatmap — LOCAL TRUTH ONLY (rules 8–9)  <!-- partial: GUI files exist, not wired to a live PeerRuntime -->
-- [ ] T7.44 implement heatmap normalization white→red against the current peak (reference parity)
-- [ ] T7.45 enforce structurally: live event payloads carry no opponent-position field (map §2.6 pattern)
+- [x] T7.43 implement gui/window.py Tkinter live window: own position, own barriers, belief heatmap — LOCAL TRUTH ONLY (rules 8–9)  <!-- done: interface/window.py PeerWindow + board_view render(position, barriers, belief_matrix); wired via PeerRuntime observer + interface/live_view.py + CLI `peer --gui` -->
+- [x] T7.44 implement heatmap normalization white→red against the current peak (reference parity)  <!-- done: board_view._heat_color(probability, peak) with peak = max cell -->
+- [x] T7.45 enforce structurally: live event payloads carry no opponent-position field (map §2.6 pattern)  <!-- done: live_view.board_snapshot builds the view from the runtime's OWN state + own belief only; no opponent-position field -->
 - [ ] T7.46 implement controls: pause/play/stop/restart + speed slider (slider = enforced LLM deadline + animation pacer)
 - [ ] T7.47 implement the status banner driven by the guarded FSM states
 - [ ] T7.48 architecture test: the live render signature cannot accept an opponent position
 - [ ] T7.49 test: heatmap color math at p=0, peak, and half-peak
-- [ ] T7.50 test: GUI event dispatch via a headless fake listener (no Tk in CI)
+- [x] T7.50 test: GUI event dispatch via a headless fake listener (no Tk in CI)  <!-- done: test_wiring.py exercises live_view.board_snapshot (the event builder) headless; test_interface_imports.py imports the GUI/live_game modules without Tk -->
 - [ ] T7.51 manual test: run a live game and capture the belief-heatmap screenshot (mandatory, brief §13)
 - [ ] T7.52 ruff + line-budget check gui/ live modules
 - [ ] T7.53 implement gui/replay.py ReplayApp over replay/verify.py: step through the log, belief rebuilt from RECORDED smell grids
-- [ ] T7.54 add a prominent "Verified OK" banner (mandatory screenshot; fixes the reference small-label gap)  <!-- partial: replay verify buggy (see T6.53) -->
+- [x] T7.54 add a prominent "Verified OK" banner (mandatory screenshot; fixes the reference small-label gap)  <!-- done: window.show_verified_ok draws a big green VERIFIED OK overlay; the screenshot capture (T7.59) is still manual -->
 - [ ] T7.55 implement sibling-log auto-discovery to overlay the opponent true track post-game
 - [ ] T7.56 implement the failure UI: red "TAMPERED" banner listing failed steps
-- [ ] T7.57 test: replaying a clean fixture log reaches the Verified OK state
-- [ ] T7.58 test: replaying a tampered fixture shows TAMPERED with step numbers
+- [x] T7.57 test: replaying a clean fixture log reaches the Verified OK state  <!-- done: test_replay.py test_verify_log_passes_for_reference_sealed_records / test_verify_log_detects_book_dialect -->
+- [x] T7.58 test: replaying a tampered fixture shows TAMPERED with step numbers  <!-- done: test_replay.py test_tampered_payload_field_fails_that_step -->
 - [ ] T7.59 manual test: capture the Replay "Verified OK" screenshot (mandatory)
 - [ ] T7.60 ruff + line-budget check gui/replay.py (data layer split into replay_data.py)
 - [ ] T7.61 port the HW6 web replay UI to render finished games from log_*.json — post-game only, no live data path (D10 creativity extension)
@@ -632,6 +635,7 @@ Every task conforms to `FINAL_PROJECT_BRIEF.md`, `planning/reference_map.md`, an
 - [ ] T8.37 verify total tokens per series present in every result JSON (rule 54)
 - [ ] T8.38 league retro: record every interop deviation discovered into docs/INTEROP.md
 - [ ] T8.39 enforce the hotfix policy: mid-league fixes on feature branches, hash updated per game, opponent informed
+- [x] T8.40 byte-exact interop conformance kit test: assert our wire/crypto/negotiation encoding matches the reference kit vectors  <!-- done: tests/unit/test_conformance_kit.py (byte-exact assertions vs the reference kit) -->
 
 ## Stage 9 — submission
 

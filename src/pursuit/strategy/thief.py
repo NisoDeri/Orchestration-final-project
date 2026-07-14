@@ -22,6 +22,7 @@ from typing import Any
 
 from pursuit.constants import Cell, Direction, MoveType, Role
 from pursuit.strategy.base import BeliefLike, BrainBase, TalkLike
+from pursuit.strategy.decoy import propose_decoy
 
 
 class SurvivorThiefBrain(BrainBase):
@@ -38,12 +39,16 @@ class SurvivorThiefBrain(BrainBase):
         w_mob: float = 0.4,  # STRATEGY §7 thief.w_mobility default
         mobility_k: int = 3,  # STRATEGY §7 thief.mobility_k default
         jail_min_mobility: int = 2,  # STRATEGY §4.2: exits(c) < 2 is banned terrain
+        decoy_enabled: bool = False,  # CREATIVITY-DESIGN E3 — DEFAULT OFF
+        decoy_margin: int = 4,  # min flee distance before we spend tempo on misdirection
     ) -> None:
         super().__init__(talk, rng)
         self.w_dist = float(w_dist)
         self.w_mob = float(w_mob)
         self.mobility_k = int(mobility_k)
         self.jail_min_mobility = int(jail_min_mobility)
+        self.decoy_enabled = bool(decoy_enabled)
+        self.decoy_margin = int(decoy_margin)
         self._opponent_charges = 0  # refreshed every _decide_move from barriers_max
 
     def _decide_move(
@@ -58,6 +63,15 @@ class SurvivorThiefBrain(BrainBase):
     ) -> tuple[Direction, Cell]:
         board, barriers = state.board, state.barriers
         threat = belief.most_likely()
+        if self.decoy_enabled:  # E3: shape the scent only when far enough to spare tempo
+            decoy = propose_decoy(
+                board, state.position, threat, barriers, moves,
+                margin=self.decoy_margin,
+                opponent_charges=self._opponent_charges,
+                jail_min_mobility=self.jail_min_mobility,
+            )
+            if decoy is not None:
+                return decoy
         far = board.size * board.size  # exceeds any BFS distance; also the unreachable bonus
         ban = (self.w_dist + self.w_mob) * far + 1.0  # dominates any achievable score
 
