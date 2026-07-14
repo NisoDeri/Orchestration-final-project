@@ -1,12 +1,5 @@
-"""PeerRuntime — ONE sub-game lifecycle for one role: handshake → turn loop → audit.
-
-Thin glue over the peer stack: negotiation (skipped when the series injects a
-:class:`Handshake`), the sealed step-0 declaration, the thief-first turn loop driven by
-the deadline-aware inboxes + :class:`DeadlineTracker` (rule 6) with a Watchdog heartbeat
-per tick (rule 7), end detection (capture kinds / survival / move ceiling), and the
-mutual audit on EVERY ending — timeout included (A6/D4). Timeout, crash and fatal
-protocol breach → ``technical_loss`` 0/0; so does an audit-caught forgery (A9a).
-"""
+"""PeerRuntime — one sub-game: handshake → thief-first turn loop → audit-on-every-ending
+(A6/D4); an optional ``observer`` gets a per-tick board snapshot for the live GUI."""
 
 from __future__ import annotations
 
@@ -30,9 +23,7 @@ from pursuit.peer.turn_sender import TurnSender
 
 
 class AgreementsView:
-    """Adapter: the handshake's ``agreements`` seam over ``PeerInboxes.negotiation``."""
-
-    def __init__(self, inboxes: Any) -> None:
+    def __init__(self, inboxes: Any) -> None:  # handshake 'agreements' seam over negotiation
         self.agreements, self._inbox = self, inboxes.negotiation
 
     def get_nowait(self) -> Any:
@@ -59,11 +50,11 @@ class PeerRuntime:
                  brain: Any, belief: Any, keypair: tuple[bytes, bytes], *,
                  handshake: Handshake | None = None, sysinfo: dict[str, Any] | None = None,
                  github_commit: str = "unknown", counted_games: int = 0,
-                 watchdog: Any = None, clock: Any = time.monotonic) -> None:
+                 watchdog: Any = None, clock: Any = time.monotonic, observer: Any = None) -> None:
         self.role, self.opponent = Role(role), Role(role).opponent
         self.config, self.transport, self.inboxes = config, transport, inboxes
         self.brain, self.belief, self.keypair = brain, belief, keypair
-        self.handshake, self.watchdog = handshake, watchdog
+        self.handshake, self.watchdog, self.observer = handshake, watchdog, observer
         self._step0_args = (dict(sysinfo or {}), github_commit, int(counted_games))
         game, movement = config.game, "movement_and_barriers"
         board = Board(game("board_and_agents.grid_size"), game(f"{movement}.move_set"))
@@ -84,6 +75,16 @@ class PeerRuntime:
             hint_max_words=game("world.hint_max_words"), setting=game("world.map_area"))
         self.turn_timeout = float(config.private("network.turn_timeout_seconds"))
         self.audit_timeout = float(config.private("network.audit_send_timeout_seconds"))
+
+    def _notify(self, status: str, hint_in: str = "", hint_out: str = "") -> None:
+        """Push a board snapshot to the optional live observer; a viewer never breaks the game."""
+        if self.observer is None:
+            return
+        try:
+            from pursuit.interface.live_view import board_snapshot  # lazy: GUI-only, no Tk
+            self.observer(board_snapshot(self, status, hint_in, hint_out))
+        except Exception:  # noqa: BLE001 — a viewer must never break the game
+            pass
 
     def run(self) -> SubgameOutcome:
         """Handshake → step-0 seal → thief-first turn loop → mutual audit → outcome."""
@@ -113,7 +114,6 @@ class PeerRuntime:
             opponent_group=str(self.handshake.opponent_identity.get("group_id", "")))
 
     def _turn_loop(self) -> tuple[GameResult, Role | None]:
-        """Alternate send/receive until an ending verdict; the thief moves first."""
         response: dict[str, Any] | None = None  # claim_response due on MY next message
         while True:
             if self.watchdog is not None:
@@ -123,10 +123,10 @@ class PeerRuntime:
                     self.brain, self.state, self.belief, self.scent_mine, self.log,
                     self.transport, self.fsm, self.handler.last_hint, claim_response=response)
                 response = None
+                self._notify("my_turn", self.handler.last_hint, sent.message.hint)
                 if sent.terminal:  # my concession (rule 21) or my survival claim (A5)
-                    conceded = bool(sent.message.claim_response
-                                    and sent.message.claim_response.get("caught"))
-                    return ((GameResult.CAPTURE, Role.POLICE) if conceded
+                    cr = sent.message.claim_response
+                    return ((GameResult.CAPTURE, Role.POLICE) if cr and cr.get("caught")
                             else (GameResult.SURVIVAL, Role.THIEF))
                 if self.role is Role.POLICE and sent.step >= self.max_moves:
                     return (GameResult.SURVIVAL, Role.THIEF)  # MY move ceiling is spent
@@ -136,6 +136,7 @@ class PeerRuntime:
             self.deadlines.disarm("opponent-turn")
             processed = self.handler.process(raw, self.state, self.belief,
                                              self.scent_reader, self.fsm)
+            self._notify("opp_turn", processed.hint)
             if processed.kind != TURN:  # duplicate or rule-5 breach: reject-and-drop
                 if processed.game_over:  # max_breaches consecutive rejects (D4)
                     return (GameResult.TECHNICAL_LOSS, None)

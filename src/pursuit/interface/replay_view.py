@@ -1,117 +1,138 @@
+"""Tkinter step-through replay of a sealed series log, gated on a live commit audit.
+
+This is OUR own single-side log: only my positions are known, so the belief heatmap is
+uniform (nothing is inferred about the opponent). The banner reflects
+:func:`replay_verify.verify_log` — green ``VERIFIED OK`` when every sealed commit
+reseals, red ``AUDIT FAILED`` otherwise. Import is headless-safe: on a machine without a
+display the tkinter import is caught and any attempt to build a viewer raises a clear
+RuntimeError instead of crashing at import time.
+"""
+
 from __future__ import annotations
 
 import json
-import tkinter as tk
 from pathlib import Path
 from typing import Any
 
-from pursuit.domain.crypto.canonical import canonical_bytes, sha256_hex
-from pursuit.interface.board_view import CELL_PX, BoardView
+from pursuit.interface.replay_verify import grid_size, parse_state, verify_log
+
+try:
+    import tkinter as tk
+
+    from pursuit.interface.board_view import CELL_PX, BoardView
+except Exception as exc:  # pragma: no cover - headless / no Tk display
+    _IMPORT_ERROR: Exception | None = exc
+    tk = None  # type: ignore[assignment]
+    CELL_PX = 52
+    BoardView = None  # type: ignore[assignment]
+else:
+    _IMPORT_ERROR = None
 
 
-def _uniform_belief(board_size: int) -> list[list[float]]:
-    val = 1.0 / (board_size * board_size)
-    return [[val] * board_size for _ in range(board_size)]
-
-
-def _verify_record(record: dict[str, Any]) -> bool:
-    """True iff sha256(canonical_bytes(payload)) matches the stored commit."""
-    commit = record.get("commit")
-    payload = record.get("payload")
-    if not isinstance(commit, str) or not isinstance(payload, dict):
-        return False
-    return sha256_hex(canonical_bytes(payload)) == commit
+def _cell(raw: Any) -> tuple[int, int] | None:
+    if isinstance(raw, (list, tuple)) and len(raw) == 2:
+        return (int(raw[0]), int(raw[1]))
+    return None
 
 
 class ReplayViewer:
-    """Step-by-step replay of a sealed-log JSON file with commit verification."""
+    """Prev/Next replay of a ``{summary, records}`` log with a verification banner."""
 
     def __init__(self, log_path: str | Path) -> None:
-        self._log_path = Path(log_path)
-        self._records: list[dict[str, Any]] = json.loads(
-            self._log_path.read_text(encoding="utf-8")
-        )
-        self._verified = all(_verify_record(r) for r in self._records)
+        if _IMPORT_ERROR is not None:
+            raise RuntimeError(f"tkinter unavailable — cannot open replay GUI: {_IMPORT_ERROR}")
+        self._path = Path(log_path)
+        doc = json.loads(self._path.read_text(encoding="utf-8"))
+        summary = doc.get("summary", {}) if isinstance(doc, dict) else {}
+        records = doc.get("records", []) if isinstance(doc, dict) else []
+        self._role = str(summary.get("role", "police"))
+        self._audit = verify_log(self._path)
+        self._frames = [
+            r for r in records
+            if isinstance(r, dict) and isinstance(r.get("payload"), dict)
+            and r["payload"].get("position") is not None
+        ]
+        self._size = self._detect_size(records)
+        self._idx = 0
+
+    @staticmethod
+    def _detect_size(records: list[Any]) -> int:
+        for rec in records:
+            payload = rec.get("payload", {}) if isinstance(rec, dict) else {}
+            size = grid_size(payload.get("state")) if isinstance(payload, dict) else None
+            if size:
+                return size
+        raise RuntimeError("board size not present in log (no grid=NxN state string)")
+
+    def _uniform(self) -> list[list[float]]:
+        val = 1.0 / (self._size * self._size)
+        return [[val] * self._size for _ in range(self._size)]
 
     def run(self) -> None:
-        """Open the Tkinter window and run the interactive replay."""
-        board_size = self._detect_board_size()
-        belief = _uniform_belief(board_size)
+        """Open the window and drive the interactive replay (blocks on mainloop)."""
+        root = self._make_root()
+        self._banner(root)
+        board = BoardView(root, self._size)
+        board.pack(padx=4, pady=4)
+        info = tk.StringVar(value="")
+        tk.Label(root, textvariable=info, font=("Segoe UI", 10)).pack()
+        belief = self._uniform()
 
-        root = tk.Tk()
-        root.title(f"Replay — {self._log_path.name}")
+        def show(idx: int) -> None:
+            payload = self._frames[idx]["payload"]
+            _, barriers = parse_state(payload.get("state"))
+            board.render(
+                my_pos=_cell(payload.get("position")), role=self._role,
+                barriers=barriers, visited=[], belief_matrix=belief,
+                message=payload.get("hint"),
+            )
+            if not self._audit["passed"]:
+                self._overlay_failed(board)
+            info.set(
+                f"Step {payload.get('step', idx)} / {len(self._frames)}"
+                f"   move={payload.get('move', '')}"
+            )
+
+        self._buttons(root, show)
+        if self._frames:
+            show(0)
+        root.mainloop()
+
+    def _make_root(self) -> Any:
+        try:
+            root = tk.Tk()
+        except Exception as exc:  # pragma: no cover - headless
+            raise RuntimeError(f"cannot create Tk window (headless display?): {exc}") from exc
+        root.title(f"Replay — {self._path.name}")
         root.resizable(False, False)
+        return root
 
-        banner_text = "VERIFIED OK" if self._verified else "AUDIT FAILED"
-        banner_color = "#27ae60" if self._verified else "#c0392b"
+    def _banner(self, root: Any) -> None:
+        passed = self._audit["passed"]
+        text = "VERIFIED OK" if passed else "AUDIT FAILED"
+        color = "#27ae60" if passed else "#c0392b"
         tk.Label(
-            root, text=banner_text, bg=banner_color, fg="white",
+            root, text=f"{text}   ({self._audit['dialect']} dialect)", bg=color, fg="white",
             font=("Segoe UI", 12, "bold"), pady=6,
         ).pack(fill="x")
 
-        board = BoardView(root, board_size)
-        board.pack(padx=4, pady=4)
+    def _buttons(self, root: Any, show: Any) -> None:
+        frame = tk.Frame(root)
+        frame.pack(pady=4)
 
-        info_var = tk.StringVar(value="Step 0")
-        tk.Label(root, textvariable=info_var, font=("Segoe UI", 10)).pack()
+        def step(delta: int) -> None:
+            self._idx = max(0, min(len(self._frames) - 1, self._idx + delta))
+            if self._frames:
+                show(self._idx)
 
-        btn_frame = tk.Frame(root)
-        btn_frame.pack(pady=4)
+        tk.Button(frame, text="< Prev", command=lambda: step(-1)).pack(side="left", padx=4)
+        tk.Button(frame, text="Next >", command=lambda: step(1)).pack(side="left", padx=4)
 
-        state = {"idx": 0}
-
-        def _pos(raw: Any) -> tuple[int, int] | None:
-            if isinstance(raw, (list, tuple)) and len(raw) == 2:
-                return (int(raw[0]), int(raw[1]))
-            return None
-
-        def show(idx: int) -> None:
-            rec = self._records[idx]
-            p = rec.get("payload", {})
-            role = p.get("role", "")
-            police_raw = p.get("police_pos") or (p.get("position") if role == "police" else None)
-            thief_raw = p.get("thief_pos") or (p.get("position") if role == "thief" else None)
-            barriers = [tuple(b) for b in p.get("barriers", []) if isinstance(b, (list, tuple))]
-            thief_pos = _pos(thief_raw)
-            board.render(
-                my_pos=_pos(police_raw), role="police",
-                barriers=barriers, visited=[],
-                belief_matrix=belief,
-                opponent_pos=thief_pos,
-                opponent_role="thief" if thief_pos else None,
-                message=p.get("message"),
-            )
-            info_var.set(f"Step {idx + 1} / {len(self._records)}")
-
-        def prev_step() -> None:
-            state["idx"] = max(0, state["idx"] - 1)
-            show(state["idx"])
-
-        def next_step() -> None:
-            state["idx"] = min(len(self._records) - 1, state["idx"] + 1)
-            show(state["idx"])
-
-        tk.Button(btn_frame, text="< Prev", command=prev_step).pack(side="left", padx=4)
-        tk.Button(btn_frame, text="Next >", command=next_step).pack(side="left", padx=4)
-
-        if self._records:
-            show(0)
-
-        if not self._verified:
-            side = board_size * CELL_PX
-            board.create_rectangle(0, side // 3, side, 2 * side // 3, fill="#c0392b", outline="")
-            board.create_text(
-                side // 2, side // 2, text="AUDIT FAILED",
-                fill="white", font=("Segoe UI", 22, "bold"),
-            )
-
-        root.mainloop()
-
-    def _detect_board_size(self) -> int:
-        for rec in self._records:
-            p = rec.get("payload", {})
-            if isinstance(p, dict):
-                size = p.get("board_size")
-                if isinstance(size, int):
-                    return size
-        return 8
+    @staticmethod
+    def _overlay_failed(board: Any) -> None:
+        side = board.board_size * CELL_PX
+        board.create_rectangle(0, side // 3, side, 2 * side // 3, fill="#c0392b", outline="")
+        board.create_text(
+            side // 2, side // 2, text="AUDIT FAILED",
+            fill="white", font=("Segoe UI", 22, "bold"),
+        )

@@ -88,14 +88,36 @@ def _tuning_kwargs(config: Any, role: Role) -> dict[str, Any]:
     return {key: value for key, value in table.items() if key in allowed}
 
 
-def _default_talk(config: Any, rng: Any) -> TemplateTalk:
-    """TemplateTalk from the shared world terms (arch §7.2: world.setting/hint_max_words)."""
+def _default_talk(config: Any, rng: Any) -> TalkLike:
+    """Talk seam from the shared world terms: Ollama banter when opted in, else TemplateTalk.
+
+    ``[trash_talk] provider == "ollama"`` builds :class:`OllamaTalk` (local, $0) over an
+    :class:`OllamaClient`; ANY construction error falls back to zero-token TemplateTalk, so
+    LLM selection can never raise into the game. ``"template"`` (default) stays TemplateTalk.
+    """
     setting = _optional(config.game, "world.setting")
     if setting is None:
         setting = _optional(config.game, "world.arena")  # arch §7.2 names the key 'arena'
+    setting = _FALLBACK_SETTING if setting is None else str(setting)
     cap = _optional(config.game, "world.hint_max_words")
-    return TemplateTalk(
-        rng,
-        _FALLBACK_SETTING if setting is None else str(setting),
-        _FALLBACK_HINT_MAX_WORDS if cap is None else int(cap),
-    )
+    cap = _FALLBACK_HINT_MAX_WORDS if cap is None else int(cap)
+    if _optional(config.private, "trash_talk.provider") == "ollama":
+        ollama = _ollama_talk(config, rng, setting, cap)
+        if ollama is not None:
+            return ollama
+    return TemplateTalk(rng, setting, cap)
+
+
+def _ollama_talk(config: Any, rng: Any, setting: str, cap: int) -> TalkLike | None:
+    """Build OllamaTalk from the private ``[trash_talk]`` block; None on any failure."""
+    try:
+        from pursuit.infra.ollama import OllamaClient
+        from pursuit.strategy.ollama_talk import OllamaTalk
+
+        url = str(_optional(config.private, "trash_talk.ollama_url") or "http://localhost:11434")
+        model = str(_optional(config.private, "trash_talk.model") or "qwen2.5:7b")
+        deadline = float(_optional(config.private, "trash_talk.deadline_seconds") or 8.0)
+        client = OllamaClient(url, model, deadline)
+        return OllamaTalk(rng, setting, cap, client=client, deadline_seconds=deadline)
+    except Exception:  # noqa: BLE001 — never let LLM talk construction crash the game
+        return None
