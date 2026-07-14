@@ -154,4 +154,4 @@ def test_step0_signature_breaks_if_counted_games_ledger_is_altered() -> None:
 def test_sealed_log_dialect_comes_from_config_block() -> None:
     assert SealedLog({"dialect": "book"}).dialect.name == "book"
     assert SealedLog({"dialect": "reference"}).dialect.name == "reference"
-    assert SealedLog(None).dialect.name == "book"  # ruling A1 default
+    assert SealedLog(None).dialect.name == "reference"  # CORE-form default (review fix)

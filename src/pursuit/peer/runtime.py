@@ -12,7 +12,6 @@ from pursuit.domain.board import Board
 from pursuit.domain.own_state import OwnGameState
 from pursuit.domain.scent import make_scent_model
 from pursuit.domain.scoring import ScoreTable
-from pursuit.exceptions import DeadlineError, TransportError
 from pursuit.peer.audit import SubgameOutcome, exchange_audits
 from pursuit.peer.deadlines import DeadlineTracker
 from pursuit.peer.fsm import GameStateMachine, State
@@ -96,14 +95,15 @@ class PeerRuntime:
         self.fsm.advance(State.MY_TURN if self.role is Role.THIEF else State.OPP_TURN)
         try:
             result, winner = self._turn_loop()
-        except (DeadlineError, TransportError):
-            result, winner = GameResult.TECHNICAL_LOSS, None  # timeout/crash → 0/0 (A6)
+        except Exception:  # noqa: BLE001 — ANY mid-game crash (timeout/transport/brain/
+            result, winner = GameResult.TECHNICAL_LOSS, None  # belief) is a 0/0 loss; the
+            # mandatory audit below STILL runs (A6) — a raise must never skip settlement.
         if self.fsm.state is not State.GAME_OVER:
             self.fsm.advance(State.GAME_OVER)
         self.fsm.advance(State.AUDITING)  # the audit runs on EVERY ending (D4/A6)
         audit = exchange_audits(self.role, result, self.log, self.transport,
                                 self.inboxes.audits, self.deadlines, self.audit_timeout,
-                                self.handshake.opponent_pubkey)
+                                self.handshake.opponent_pubkey, self.handler.commits)
         if audit["forgery"]:
             result, winner = GameResult.TECHNICAL_LOSS, None  # provable forgery (A9a)
         self.fsm.advance(State.DONE)

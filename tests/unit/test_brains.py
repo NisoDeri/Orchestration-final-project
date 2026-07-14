@@ -114,19 +114,21 @@ def test_police_closes_bfs_distance_every_turn_on_open_board() -> None:
 
 
 @pytest.mark.parametrize(
-    ("target", "expected_direction"),
-    [((3, 4), Direction.E), ((2, 3), Direction.N), ((3, 3), Direction.STAY)],
+    ("target", "expected"),
+    [((3, 4), (MoveType.MOVE, Direction.E)),        # adjacent mode -> LAND on it (universal
+     ((2, 3), (MoveType.MOVE, Direction.N)),        # capture; a reference peer rejects a
+     ((3, 3), (MoveType.BARRIER, Direction.STAY))],  # barrier-on-thief). own cell -> wall it.
 )
-def test_police_walls_the_finisher_case(target: Cell, expected_direction: Direction) -> None:
+def test_police_finisher_lands_else_walls_own_cell(target: Cell, expected: tuple) -> None:
     decision = police().decide(make_state((3, 3)), FakeBelief(target, p=0.9), "", "",
                                MAX_BARRIERS)
-    assert (decision.move_type, decision.direction) == (MoveType.BARRIER, expected_direction)
+    assert (decision.move_type, decision.direction) == expected
 
 
 def test_police_finisher_accepts_tuple_belief_shape() -> None:
     decision = police().decide(make_state((3, 3)), TupleBelief((3, 4), p=0.9), "", "",
                                MAX_BARRIERS)
-    assert (decision.move_type, decision.direction) == (MoveType.BARRIER, Direction.E)
+    assert (decision.move_type, decision.direction) == (MoveType.MOVE, Direction.E)  # land it
 
 
 def test_police_finisher_needs_mode_probability() -> None:

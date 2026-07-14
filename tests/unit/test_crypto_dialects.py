@@ -84,10 +84,10 @@ def test_base_dialect_commit_is_abstract() -> None:
         HashDialect().commit(WORKED_PAYLOAD, WORKED_NONCE)
 
 
-def test_factory_defaults_to_book_and_honors_explicit_choice() -> None:
-    assert DEFAULT_DIALECT == "book"  # NotebookLM ruling A1
-    assert isinstance(make_hash_dialect({}), BookDialect)
-    assert isinstance(make_hash_dialect(None), BookDialect)
+def test_factory_defaults_to_reference_and_honors_explicit_choice() -> None:
+    assert DEFAULT_DIALECT == "reference"  # league CORE form; a partial crypto block
+    assert isinstance(make_hash_dialect({}), ReferenceDialect)  # must not fall back to book
+    assert isinstance(make_hash_dialect(None), ReferenceDialect)
     assert isinstance(make_hash_dialect({"dialect": "book"}), BookDialect)
     assert isinstance(make_hash_dialect({"dialect": "reference"}), ReferenceDialect)
 
