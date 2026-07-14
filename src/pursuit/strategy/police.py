@@ -54,14 +54,22 @@ class InterceptorPoliceBrain(BrainBase):
     ) -> tuple[MoveType, Direction | None]:
         board, pos, barriers = state.board, state.position, state.barriers
         target = belief.most_likely()
+        moves = board.legal_moves(pos, barriers)
+        confident = mode_probability(belief) >= self.barrier_finisher_p
+        # LANDING capture (rule 46 half-one) is UNIVERSALLY honored — a reference peer
+        # rejects a barrier-on-thief (rule 46 half-two) it never implemented, so stepping
+        # ONTO the mode always beats walling it when both are available (review fix).
+        if confident:
+            for direction, cell in moves:
+                if cell == target and direction is not Direction.STAY:
+                    return (MoveType.MOVE, direction)  # step onto the thief = capture
         if state.my_barriers < barriers_max:
             options = barrier_options(board, pos, barriers)
-            if target in options and mode_probability(belief) >= self.barrier_finisher_p:
-                return (MoveType.BARRIER, _direction_toward(pos, target))  # finisher = capture
+            if target in options and confident:  # can't land it -> wall it (book-peer capture)
+                return (MoveType.BARRIER, _direction_toward(pos, target))
             lane = self._tempo_lane(board, pos, target, barriers, options)
             if lane is not None:
                 return (MoveType.BARRIER, _direction_toward(pos, lane))
-        moves = board.legal_moves(pos, barriers)
         if not moves:
             return (MoveType.HOLD, None)
         return (MoveType.MOVE, self._pick_move(moves, state, belief)[0])

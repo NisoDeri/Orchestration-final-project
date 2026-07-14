@@ -3,13 +3,12 @@
 Everything is validated against MY replica of the shared physics BEFORE any mutation
 (rules 4-5): envelope, sender, step sequence (retries legally duplicate — a seen step drops
 idempotently, INTEROP §1), role-legal claim fields, barrier legality (A3), smell geometry.
-A violation takes the protocol-breach path: counted, surfaced, never absorbed;
-``max_breaches`` consecutive rejects drive the FSM to GAME_OVER (``technical_loss`` 0/0,
-D4). Valid messages fold in the canonical seam order (STRATEGY §2.4): truthful barrier
-(rule 14) -> scent-mirror ``absorb`` -> belief PREDICT (``diffuse`` anchored on MY cell) ->
-UPDATE (``observe_smell``). Hint + capture-claim answer are stashed for the brain/sender;
-``capture_claim`` is answered TRUTHFULLY from my own state (rule 21 — the audit exposes
-lies); barrier-on-thief / jailed-thief captures (rules 46-47) are self-detected.
+A violation takes the breach path (counted, surfaced); ``max_breaches`` consecutive
+rejects end the sub-game (``technical_loss`` 0/0, D4). Valid messages fold in seam order
+(STRATEGY §2.4): truthful barrier (rule 14) -> scent ``absorb`` -> belief PREDICT
+(``diffuse`` on MY cell) -> UPDATE (``observe_smell``); hint/capture-claim stashed for the
+brain/sender; ``capture_claim`` answered TRUTHFULLY (rule 21); rules 46-47 self-detected.
+Each valid opponent ``commit`` is retained to bind live vs revealed at the end-game audit.
 """
 
 from __future__ import annotations
@@ -60,7 +59,7 @@ class TurnHandler:
         self.survival_threshold, self.barriers_max = int(survival_threshold), int(barriers_max)
         self.max_breaches = int(max_breaches)
         self.last_step, self.last_hint = 0, ""  # dedup key + stashed brain intake (§2.5)
-        self.opponent_barriers, self.breaches = 0, 0
+        self.opponent_barriers, self.breaches, self.commits = 0, 0, {}  # commits: step->wire commit
 
     def process(self, message: TurnMessage | dict[str, Any], own_state: Any, belief: Any,
                 scent_reader: Any, fsm: Any) -> ProcessedTurn:
@@ -77,6 +76,7 @@ class TurnHandler:
         except (TransportError, ValueError) as exc:
             return self._breach(fsm, msg.step, str(exc))
         self.last_step, self.last_hint, self.breaches = msg.step, msg.hint, 0
+        self.commits[msg.step] = msg.commit  # bind live commit -> checked vs reveal at audit
         if barrier is not None:
             own_state.note_opponent_barrier(barrier)  # truthful by rule 14
             self.opponent_barriers += 1

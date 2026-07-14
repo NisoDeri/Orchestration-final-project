@@ -35,14 +35,31 @@ class SubgameOutcome:
     opponent_group: str
 
 
+def _reveal_mismatches(records: Any, live_commits: dict[int, str]) -> list[int]:
+    """Steps whose REVEALED commit != the commit the opponent broadcast LIVE that turn.
+
+    Without this, ``audit_verify`` only proves the revealed chain is self-consistent, so a
+    peer could seal a fresh internally-valid chain at reveal and swap the move it played
+    after seeing ours — defeating commit-reveal. A mismatch here is provable forgery.
+    """
+    bad: list[int] = []
+    for rec in records:
+        step = rec.payload.get("step") if isinstance(rec.payload, dict) else None
+        if step in live_commits and live_commits[step] != rec.commit:
+            bad.append(step)
+    return bad
+
+
 def exchange_audits(role: Role, result: GameResult, log: SealedLog, transport: Any,
                     audits_inbox: Any, deadlines: Any, audit_timeout: float,
-                    opponent_pubkey: str | None) -> dict[str, Any]:
+                    opponent_pubkey: str | None,
+                    live_commits: dict[int, str] | None = None) -> dict[str, Any]:
     """A8 stage 4: reveal every nonce both ways; verify theirs; report per-step results.
 
-    Returns the audit dict for the log summary: ``passed`` / ``forgery`` /
-    ``opponent_received`` / ``steps`` / ``failed_steps`` (+ ``their_claim`` when the
-    opponent's payload arrived).
+    Beyond recomputing each revealed commit, we BIND every revealed commit to the one the
+    opponent broadcast live that turn (``live_commits``) — a mismatch is a move-swap forgery.
+    Returns the audit dict: ``passed`` / ``forgery`` / ``opponent_received`` / ``steps`` /
+    ``failed_steps`` (+ ``their_claim`` when the opponent's payload arrived).
     """
     mine = AuditPayload(sender=role.value, result_claim=result.value,
                         records=[AuditRecord(**rec) for rec in log.audit_reveal()])
@@ -58,6 +75,7 @@ def exchange_audits(role: Role, result: GameResult, log: SealedLog, transport: A
         deadlines.disarm("audit-exchange")
     steps = SealedLog.audit_verify([rec.to_wire() for rec in theirs.records], log.dialect)
     failed = [step["step"] for step in steps if not step["ok"]]
+    failed = sorted(set(failed) | set(_reveal_mismatches(theirs.records, live_commits or {})))
     if not failed and opponent_pubkey and theirs.records and not verify_step0_signature(
             theirs.records[0].payload, opponent_pubkey.encode("ascii")):
         failed = [0]  # forged D14 hardware/ledger declaration (rulings A7/A9b)
