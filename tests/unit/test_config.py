@@ -67,8 +67,8 @@ class TestLoad:
 class TestDottedAccess:
     def test_game_nested_paths(self, cfg):
         assert cfg.game("movement_and_barriers.move_set") == ["N", "S", "E", "W", "STAY"]
-        assert cfg.game("pheromones.dialect") == "book"
-        assert cfg.game("crypto.dialect") == "book"
+        assert cfg.game("pheromones.dialect") == "reference"
+        assert cfg.game("crypto.dialect") == "reference"
         assert cfg.game("board_and_agents.thief_start") == [3, 3]
 
     def test_private_nested_paths(self, cfg):

@@ -30,15 +30,16 @@
     "technical_loss": 0
   },
   "pheromones": {
-    "dialect": "book",
+    "dialect": "reference",
     "pheromone_center_intensity": 0.9,
     "pheromone_decay": 0.1,
     "pheromone_grid_size": 5,
-    "pheromone_min_center_intensity": 0.5
+    "pheromone_min_center_intensity": 0.5,
+    "_note": "reference = subtractive decay + radial emit (league conformance kit CORE; byte-exact vs vectors/pheromone.json). book (multiplicative) kept in-engine, selectable by rule-23 lock. Our BeliefV2 inverts THIS emission model to read the opponent's snapshot, so it must match the peer's dialect."
   },
   "crypto": {
-    "dialect": "book",
-    "_note": "book = nonce inside canonical JSON (authoritative, ruling A1); reference = pipe-appended nonce, for stock-reference partners only, by explicit rule-23 lock."
+    "dialect": "reference",
+    "_note": "reference = SHA256(canonical_json(payload)|nonce): the league conformance-kit CORE form (github.com/Imreec/copthief-league-protocol; byte-exact vs vectors/commit_reveal.json + terms_signature.json), and the only one of the release's 3 published constructions that binds the FULL record. book (nonce-inside-JSON, ruling A1) also binds the full record and stays implemented, selectable by rule-23 lock. Default flipped book->reference for day-one league interop (academic-freedom clause; printed listings non-binding)."
   },
   "network_and_league": {
     "response_timeout_sec": 30,

@@ -71,8 +71,8 @@ class TestBuildTerms:
 
         terms = build_terms(make_config(enable))
         assert set(terms) == set(WIRE_TERM_SOURCES) | set(DIALECT_TERM_SOURCES)
-        assert terms["crypto_dialect"] == "book"
-        assert terms["scent_dialect"] == "book"
+        assert terms["crypto_dialect"] == "reference"
+        assert terms["scent_dialect"] == "reference"
 
     def test_flag_false_keeps_stock_shape(self):
         def disable(game):
