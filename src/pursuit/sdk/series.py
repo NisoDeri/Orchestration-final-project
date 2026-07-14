@@ -11,15 +11,14 @@ exactly the BeliefV2 surface the turn handler and the v1 brains consume.
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Any
 
 from pursuit.constants import Cell, Role
 from pursuit.domain.scoring import ScoreTable
 from pursuit.exceptions import ConfigError
-from pursuit.peer.audit import SubgameOutcome
 from pursuit.peer.runtime import PeerRuntime
+from pursuit.sdk.series_log import log_document, sub_row, write_json
 
 
 def _cell_of(key: str) -> Cell:
@@ -91,11 +90,32 @@ def counted_games(config: Any) -> int:
         return 0
 
 
+def _maybe_email(config: Any, summary: dict[str, Any]) -> None:
+    """Opt-in (private ``email.enabled``): send the result artifact via the email Gatekeeper."""
+    try:
+        if not bool(config.private("email.enabled")):
+            return
+    except ConfigError:
+        return
+    try:  # a send failure must NEVER crash the series (§email, D8)
+        from pursuit.infra.email import GmailSender
+        from pursuit.infra.gatekeeper import Gatekeeper
+        from pursuit.report.artifacts import build_result_artifact
+
+        my_gid = str(summary.get("group_id", ""))
+        opp = next((g for g in summary.get("totals", {}) if g != my_gid), "opponent")
+        artifact = build_result_artifact(summary, my_gid, opp)
+        Gatekeeper.from_config(config, "email").execute(
+            GmailSender().send_result, f"pursuit result {summary.get('game_id', '')}", artifact)
+    except Exception:  # noqa: BLE001
+        pass
+
+
 def run_series(config: Any, role: Role, num_games: int, transport: Any, inboxes: Any, *,
                keypair: tuple[bytes, bytes], brain_factory: Any, sysinfo: dict[str, Any],
-               github_commit: str, watchdog: Any = None,
+               github_commit: str, watchdog: Any = None, observer: Any = None,
                logs_dir: str | Path | None = None) -> dict[str, Any]:
-    """Play ``num_games`` sub-games; aggregate scores + the tie rule; emit logs."""
+    """Play ``num_games`` sub-games; aggregate scores + the tie rule; emit logs + email."""
     my_gid = str(config.private("game.group_id"))
     table = ScoreTable(config.game("scoring"))
     rows: list[dict[str, int]] = []
@@ -108,48 +128,20 @@ def run_series(config: Any, role: Role, num_games: int, transport: Any, inboxes:
         runtime = PeerRuntime(role_now, config, transport, inboxes,
                               brain_factory(role_now), belief_for(config, role_now),
                               keypair, sysinfo=sysinfo, github_commit=github_commit,
-                              counted_games=counted_games(config), watchdog=watchdog)
+                              counted_games=counted_games(config), watchdog=watchdog,
+                              observer=observer)
         outcome = runtime.run()
         game_id = outcome.game_id
         opp_gid = outcome.opponent_group or "opponent"
         rows.append({my_gid: outcome.scores[role_now],
                      opp_gid: outcome.scores[role_now.opponent]})
-        subs.append(_sub_row(number, role_now, my_gid, opp_gid, outcome))
+        subs.append(sub_row(number, role_now, my_gid, opp_gid, outcome))
         if logs_dir is not None:
-            _write_json(Path(logs_dir) / my_gid / f"log_{game_id}_g{number:02d}.json",
-                        _log_document(number, role_now, my_gid, outcome))
+            write_json(Path(logs_dir) / my_gid / f"log_{game_id}_g{number:02d}.json",
+                       log_document(number, role_now, my_gid, outcome))
     summary = {"game_id": game_id, "group_id": my_gid, "num_sub_games": num_games,
                "sub_games": subs, **table.series_totals(rows)}
     if logs_dir is not None:
-        _write_json(Path(logs_dir) / my_gid / f"series_{game_id}.json", summary)
+        write_json(Path(logs_dir) / my_gid / f"series_{game_id}.json", summary)
+    _maybe_email(config, summary)
     return summary
-
-
-def _sub_row(number: int, role: Role, my_gid: str, opp_gid: str,
-             outcome: SubgameOutcome) -> dict[str, Any]:
-    """One result row (the shape the report-stage result artifact will consume)."""
-    return {"sub_game_number": number,
-            "roles": {my_gid: role.value, opp_gid: role.opponent.value},
-            "result": outcome.result.value,
-            "winner_role": None if outcome.winner is None else outcome.winner.value,
-            "score": {my_gid: outcome.scores[role], opp_gid: outcome.scores[role.opponent]},
-            "steps": outcome.steps, "game_uid": outcome.game_uid,
-            "audit": {key: outcome.audit[key] for key in
-                      ("passed", "forgery", "opponent_received", "failed_steps")}}
-
-
-def _log_document(number: int, role: Role, my_gid: str,
-                  outcome: SubgameOutcome) -> dict[str, Any]:
-    """Minimal replayable per-sub-game log: summary + the revealed sealed chain."""
-    return {"summary": {"sub_game_number": number, "group_id": my_gid, "role": role.value,
-                        "opponent_group_id": outcome.opponent_group,
-                        "game_id": outcome.game_id, "game_uid": outcome.game_uid,
-                        "result": outcome.result.value,
-                        "winner_role": None if outcome.winner is None else outcome.winner.value,
-                        "steps": outcome.steps, "audit": outcome.audit},
-            "records": outcome.records}
-
-
-def _write_json(path: Path, data: dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")

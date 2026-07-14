@@ -7,7 +7,6 @@ when their run() / mainloop() methods are invoked, so a bare import is always sa
 from __future__ import annotations
 
 import importlib
-import sys
 
 
 def _skip_if_no_tkinter():
@@ -53,31 +52,35 @@ def test_interface_package_importable():
 
 
 def test_replay_viewer_no_mainloop_on_init(tmp_path):
-    """ReplayViewer.__init__ must not call mainloop or open a window."""
+    """ReplayViewer.__init__ verifies + parses frames but must NOT open a window."""
     _skip_if_no_tkinter()
     import json
 
     from pursuit.interface.replay_view import ReplayViewer
 
-    # Build a minimal valid log file
+    # A minimal {summary, records} log (the on-disk shape sdk/series.py emits).
     log_file = tmp_path / "test.json"
-    records = [
-        {
-            "commit": "aabbcc",
-            "payload": {
-                "role": "police",
-                "board_size": 4,
-                "position": [0, 0],
-                "barriers": [],
-                "message": None,
-            },
-        }
-    ]
-    log_file.write_text(json.dumps(records), encoding="utf-8")
+    doc = {
+        "summary": {"role": "police", "game_id": "x-vs-y", "result": "capture"},
+        "records": [
+            {
+                "commit": "deadbeef",  # fake commit: audit must NOT pass
+                "nonce": "00",
+                "payload": {
+                    "step": 1,
+                    "state": "grid=4x4;self=[0, 0];barriers=[]",
+                    "position": [0, 0],
+                    "move": "MOVE:S",
+                    "hint": "",
+                },
+            }
+        ],
+    }
+    log_file.write_text(json.dumps(doc), encoding="utf-8")
 
-    # Should construct without raising even though commit does not match
+    # Constructs (verifies + parses frames) without opening any window.
     viewer = ReplayViewer(log_file)
-    assert isinstance(viewer._records, list)
-    assert len(viewer._records) == 1
-    # verified flag should be False (fake commit hash)
-    assert viewer._verified is False
+    assert isinstance(viewer._frames, list)
+    assert len(viewer._frames) == 1
+    assert viewer._size == 4
+    assert viewer._audit["passed"] is False  # fake commit -> audit fails

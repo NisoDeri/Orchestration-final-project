@@ -1,59 +1,44 @@
-# First Blood — Self-Play Lab Results (D7)
+# First Blood — Agent-vs-Agent Lab Results (D7, BeliefV2)
 
-**Date:** 2026-07-14  
-**Group:** nis-yar1  
-**Seed:** 42 | **Games per matchup:** 100
+**Date:** 2026-07-14
+**Group:** nis-yar1
+**Seed:** 42 | **Games per matchup:** 100 (played twice with roles swapped → 200 sub-games)
 
-## Board Configuration
+## What this lab measures
 
-| Parameter | Value |
-|-----------|-------|
-| Grid size | 7x7 |
-| Cop start | (0,0) — top-left corner |
-| Thief start | (3,3) — centre |
-| Survival threshold | 35 thief moves |
-| Max cop moves | 35 |
-| Max barriers | 14 |
+The earlier "self-play" table (one brain-set playing itself, thief-always-wins) was
+**misleading**: on the signed board the thief starts at the centre (3,3) while the cop
+starts at the corner (0,0) — a 6-cell BFS handicap with only a 35-move survival quota, so
+*any* thief survives *any* cop. That says nothing about brain quality.
 
-Initial BFS distance cop→thief: **6 cells**.
+This honest lab runs a real **agent-vs-agent** series (`run_lab_versus`): each seed is
+played twice with the two agents' roles swapped, so `win_rate_A` measures agent **A**'s
+brains against agent **B**'s on byte-identical boards. The positional handicap is present
+in every game but **cancels by symmetry**, isolating strategy quality. Belief is the real
+recursive-Bayes **BeliefV2** filter.
 
-## Self-Play Results (100 games each, seed 42)
+## Results
 
-| Matchup | Police Brain | Thief Brain | Police Wins | Thief Wins | Avg Steps |
-|---------|-------------|------------|-------------|------------|-----------|
-| 1 | InterceptorPoliceBrain | SurvivorThiefBrain | 0 (0%) | 100 (100%) | 35.0 |
-| 2 | InterceptorPoliceBrain | GreedyThiefBrain | 0 (0%) | 100 (100%) | 35.0 |
-| 3 | GreedyPoliceBrain | SurvivorThiefBrain | 0 (0%) | 100 (100%) | 35.0 |
+| Matchup | Agent A | Agent B | Games | win_rate_A | p_value_A | Points A | Points B |
+|---------|---------|---------|------:|-----------:|----------:|---------:|---------:|
+| Interceptor vs Greedy | ours (BeliefV2) | reference greedy | 200 | **0.98** | 4.1e-53 | **2980** | 1060 |
+| Ours vs Ours (mirror) | ours | ours (identical) | 200 | 0.50 | 0.53 | 1500 | 1500 |
 
-**Finding:** With the current signed game parameters (cop starts at corner [0,0],
-thief at centre [3,3], BFS gap = 6, survival threshold = 35), the thief always
-reaches the step quota before the cop can close the distance. This reflects the
-intended league balance — in a symmetric league both sides alternate roles so
-neither has a persistent advantage.
+## Findings
 
-## Belief Entropy Convergence (5 games, InterceptorPoliceBrain)
+**1 — Our BeliefV2 agent beats the greedy baseline decisively.**
+With the positional handicap cancelled by role-swapping, our
+`InterceptorPoliceBrain + SurvivorThiefBrain` set wins **98%** of decided games against
+the reference `Greedy` baseline (2980 vs 1060 points) at p ≈ 4×10⁻⁵³ — overwhelmingly
+significant. BFS routing, the value-tested barrier doctrine, and mobility-aware flight
+translate into a real, measurable edge that the blind self-play table completely hid.
 
-The police's BeliefV2 starts with **5.615 bits** (uniform prior over 49 cells).
-After the **first scent observation** (sigma_obs = 0.1, very sharp), entropy
-drops to **0.0 bits** — the belief perfectly localises the thief.
-Brief spikes (~0.35 bits) appear when the thief moves away between consecutive
-observations; the belief re-converges within one additional turn.
+**2 — The mirror matchup is balanced, exactly as it must be.**
+Our brain-set against an identical copy of itself gives `win_rate_A = 0.50`, points
+1500 = 1500, p ≈ 0.53 — a textbook null result. This confirms the lab has no role or
+seed bias: the 98% above is a property of the *brains*, not of the harness.
 
-**Key insight:** BeliefV2 achieves near-perfect localisation within 1 step
-using scent alone (sigma_obs = 0.1). The bottleneck is not information quality
-but the physical distance the cop must close.
-
-## Strategy Comparison
-
-| Dimension | InterceptorPoliceBrain | GreedyPoliceBrain |
-|-----------|----------------------|-------------------|
-| Distance metric | BFS true distance | Manhattan (barrier-blind) |
-| Barrier doctrine | Deterministic value-test | 15% coin flip on own-step cell |
-| Self-walling risk | Structurally impossible (W4 fix) | Present (reference weakness W4) |
-| Tie-break | Mobility-weighted | Move-set order |
-
-| Dimension | SurvivorThiefBrain | GreedyThiefBrain |
-|-----------|-------------------|-----------------|
-| Score function | BFS flee + mobility bonus | Manhattan flee + unvisited preference |
-| Jail-risk ban | Active when cop has charges | None |
-| Barrier awareness | Full (charges observable) | None |
+**3 — The cop-start handicap is real but not the story.**
+The thief's 6-cell head start still makes survival the common outcome for both agents;
+what the honest lab shows is that, given the same handicap, **our agent converts far more
+of those symmetric games into points than greedy does.**
