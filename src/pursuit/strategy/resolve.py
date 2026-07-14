@@ -34,7 +34,8 @@ _DEFAULT_BRAINS: dict[Role, type[BrainBase]] = {
 _SELECTOR_KEYS = {Role.POLICE: "strategy.police_class", Role.THIEF: "strategy.thief_class"}
 _TUNING_TABLES: dict[Role, tuple[str, frozenset[str]]] = {
     Role.POLICE: ("police", frozenset({"barrier_finisher_p", "cage_radius"})),
-    Role.THIEF: ("thief", frozenset({"w_dist", "w_mob", "mobility_k", "jail_min_mobility"})),
+    Role.THIEF: ("thief", frozenset({"w_dist", "w_mob", "mobility_k", "jail_min_mobility",
+                                      "decoy_enabled", "decoy_margin"})),
 }
 
 

@@ -18,7 +18,7 @@ from pursuit.constants import Cell, Role
 from pursuit.domain.scoring import ScoreTable
 from pursuit.exceptions import ConfigError
 from pursuit.peer.runtime import PeerRuntime
-from pursuit.sdk.series_log import log_document, sub_row, write_json
+from pursuit.sdk.series_log import LieProfiler, log_document, sub_row, write_json
 
 
 def _cell_of(key: str) -> Cell:
@@ -54,8 +54,11 @@ class ScentBelief:
         return self._p
 
 
-def belief_for(config: Any, role: Role) -> Any:
-    """BeliefV2 when private belief config is present; else the ScentBelief stand-in."""
+def belief_for(config: Any, role: Role, trust_prior: float | None = None) -> Any:
+    """BeliefV2 when private belief config is present; else the ScentBelief stand-in.
+
+    ``trust_prior`` (E2 profiler output, default ``None``) seeds the next reliability prior.
+    """
     key = "thief_start" if role is Role.POLICE else "cop_start"
     start: Cell = tuple(config.game(f"board_and_agents.{key}"))  # type: ignore[assignment]
     try:
@@ -67,10 +70,7 @@ def belief_for(config: Any, role: Role) -> Any:
     from pursuit.domain.belief.engine import BeliefV2  # import here — keeps lab import-free
 
     board_size = int(config.game("board_and_agents.grid_size"))
-    belief_cfg = {
-        "move_set": list(config.game("movement_and_barriers.move_set")),
-        **{k: cfg[k] for k in cfg if k != "smell_trust_weight" and k != "hint_trust_prior"},
-    }
+    belief_cfg = LieProfiler.belief_cfg(config, cfg, trust_prior)
     scent_cfg = {
         "dialect": config.game("pheromones.dialect"),
         "board_size": board_size,
@@ -121,12 +121,13 @@ def run_series(config: Any, role: Role, num_games: int, transport: Any, inboxes:
     rows: list[dict[str, int]] = []
     subs: list[dict[str, Any]] = []
     game_id = ""
+    profiler = LieProfiler(config)  # E2 cross-sub-game lie-profiler (default off, non-fatal)
     for number in range(1, num_games + 1):
         inboxes.turns.drain()  # stale-turn hygiene between sub-games (INTEROP §2.4);
         inboxes.audits.drain()  # safe: fresh turns only follow the new handshake
         role_now = role if number % 2 == 1 else role.opponent  # odd = my config role
         runtime = PeerRuntime(role_now, config, transport, inboxes,
-                              brain_factory(role_now), belief_for(config, role_now),
+                              brain_factory(role_now), belief_for(config, role_now, profiler.prior),
                               keypair, sysinfo=sysinfo, github_commit=github_commit,
                               counted_games=counted_games(config), watchdog=watchdog,
                               observer=observer)
@@ -136,6 +137,7 @@ def run_series(config: Any, role: Role, num_games: int, transport: Any, inboxes:
         rows.append({my_gid: outcome.scores[role_now],
                      opp_gid: outcome.scores[role_now.opponent]})
         subs.append(sub_row(number, role_now, my_gid, opp_gid, outcome))
+        profiler.observe(outcome, role_now.opponent)  # seed the next sub-game's r_0 (E2)
         if logs_dir is not None:
             write_json(Path(logs_dir) / my_gid / f"log_{game_id}_g{number:02d}.json",
                        log_document(number, role_now, my_gid, outcome))

@@ -1,16 +1,10 @@
 """Signed-agreement terms: build, sign, verify (INTEROP §2.1/§3.3/§4; DECISIONS D3).
 
-The wire ``terms`` dict is the COMPLETE signed contract — a stock reference peer
-performs an exact-dict-equality check, so extra keys break the handshake (INTEROP §2.1,
-§7 landmine 9). Our D3 dialect ids (``crypto.dialect`` / ``pheromones.dialect``)
-therefore live in the per-game config + rule-23 lock (``config_sha256``) and are
-injected into the wire terms ONLY when both peers agreed to the extended shape via the
-shared flag ``negotiation.wire_dialect_terms = true`` in game.json. Flag absent/false =
-the stock 14-key reference shape; the dialects still bind out-of-band through the
-signed per-game config file.
-
-Pure functions over loaded config trees — zero I/O (architecture.md domain layer).
-"""
+The wire ``terms`` dict is the COMPLETE signed contract — a stock reference peer does an
+exact-dict-equality check, so extra keys break the handshake (§7 landmine 9). D3 dialect
+ids are injected on the wire ONLY under ``negotiation.wire_dialect_terms``; the opt-in E6
+``rule_deltas`` block (mutually-agreed floor RAISES) is added the same way. Pure functions
+over loaded config trees — zero I/O (architecture.md domain layer)."""
 
 from __future__ import annotations
 
@@ -21,8 +15,7 @@ from pursuit.domain.crypto.dialects import ReferenceDialect
 from pursuit.exceptions import ConfigError, NegotiationError
 from pursuit.shared.config import ConfigManager
 
-#: Wire term -> shared game.json dotted path. EXACTLY INTEROP §2.1's 14 keys, in the
-#: documented order (order is cosmetic — every hash sorts keys; the SET is the contract).
+#: Wire term -> game.json dotted path. EXACTLY INTEROP §2.1's 14 keys (order is cosmetic).
 WIRE_TERM_SOURCES: dict[str, str] = {
     "board_size": "board_and_agents.grid_size",
     "smell_grid_size": "pheromones.pheromone_grid_size",
@@ -49,6 +42,17 @@ DIALECT_TERM_SOURCES: dict[str, str] = {
 #: Shared game.json flag gating the extended (dialects-on-the-wire) terms shape.
 WIRE_DIALECT_FLAG = "negotiation.wire_dialect_terms"
 
+#: E6 rule-delta key -> game.json path holding its BOOK MINIMUM (a delta may only RAISE).
+RULE_DELTA_SOURCES: dict[str, str] = {
+    "max_moves": "movement_and_barriers.max_moves",
+    "max_barriers": "movement_and_barriers.max_barriers",
+    "hint_max_words": "world.hint_max_words",
+    "token_budget": "network_and_league.token_budget_per_series",
+}
+
+#: Shared game.json key carrying the proposed overrides (absent = capability OFF).
+RULE_DELTAS_FLAG = "negotiation.propose_rule_deltas"
+
 
 def _wire_dialect_terms_enabled(config: ConfigManager) -> bool:
     """Read the shared extended-shape flag; absent means False (stock 14-key shape)."""
@@ -61,30 +65,55 @@ def _wire_dialect_terms_enabled(config: ConfigManager) -> bool:
     return flag
 
 
-def build_terms(config: ConfigManager) -> dict[str, Any]:
-    """Assemble the signed wire ``terms`` dict from the SHARED game.json.
+def _proposed_rule_deltas(config: ConfigManager) -> dict[str, Any]:
+    """Validate opt-in E6 deltas (absent -> ``{}``). SAFETY INVARIANT: each must RAISE its
+    parameter above the book minimum, else (unknown/non-numeric/at-or-below) ConfigError."""
+    try:
+        proposed = config.game(RULE_DELTAS_FLAG)
+    except ConfigError:
+        return {}
+    if not isinstance(proposed, dict):
+        raise ConfigError(f"'{RULE_DELTAS_FLAG}' must be a JSON object, got {proposed!r}")
+    for key, value in proposed.items():
+        if key not in RULE_DELTA_SOURCES:
+            raise ConfigError(f"unknown rule delta '{key}' (not a negotiable parameter)")
+        floor = config.game(RULE_DELTA_SOURCES[key])
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or value <= floor:
+            raise ConfigError(f"rule delta '{key}'={value!r} must RAISE above minimum {floor!r}")
+    return dict(proposed)
 
-    Returns the exact 14 INTEROP §2.1 keys — plus the two D3 dialect keys iff the
-    shared ``negotiation.wire_dialect_terms`` flag is true (see module docstring for
-    the stock-reference landmine this resolves). Any missing source term raises
-    ConfigError (fail-fast BEFORE the handshake, never mid-series).
-    """
+
+def build_terms(config: ConfigManager) -> dict[str, Any]:
+    """Signed wire ``terms`` from SHARED game.json: 14 INTEROP §2.1 keys, +2 dialect keys
+    iff ``wire_dialect_terms`` on, +``rule_deltas`` iff E6 proposed. Missing -> ConfigError."""
     terms: dict[str, Any] = {key: config.game(path) for key, path in WIRE_TERM_SOURCES.items()}
     if _wire_dialect_terms_enabled(config):
         for key, path in DIALECT_TERM_SOURCES.items():
             terms[key] = config.game(path)
+    deltas = _proposed_rule_deltas(config)
+    if deltas:
+        terms["rule_deltas"] = deltas
     return terms
 
 
-def agreement_signature(terms: dict[str, Any], nonce: str) -> str:
-    """Agreement signature: ``sha256(canonical_json(terms) + "|" + nonce)``.
+def accept_rule_deltas(theirs: dict[str, Any], ours: dict[str, Any]) -> dict[str, Any]:
+    """Merge two E6 blocks iff both peers signed value-equal deltas; any unmatched key or
+    diverging value refuses (NegotiationError). Returns the merged block."""
+    if not isinstance(theirs, dict) or not isinstance(ours, dict):
+        raise NegotiationError("rule_deltas block is not a dict")
+    for key in sorted(set(ours) | set(theirs)):
+        if key not in theirs:
+            raise NegotiationError(f"rule delta '{key}': not signed by opponent")
+        if key not in ours:
+            raise NegotiationError(f"rule delta '{key}': unsigned extra from opponent")
+        if not _same_wire_value(ours[key], theirs[key]):
+            raise NegotiationError(f"rule delta '{key}': ours={ours[key]!r} theirs={theirs[key]!r}")
+    return dict(ours)
 
-    Per INTEROP §3.3 (and the §3.4 hasher table) this is ALWAYS the dialect-A
-    pipe-append construction — the reference's ``CommitReveal.commit_of`` — even when
-    the per-step commit dialect negotiated for the series is ``book``: it is what an
-    unmodified reference peer verifies. Golden vector: the INTEROP §2.1 worked terms
-    + nonce reproduce ``167fef4e...7472d``.
-    """
+
+def agreement_signature(terms: dict[str, Any], nonce: str) -> str:
+    """Agreement signature ``sha256(canonical_json(terms) + "|" + nonce)`` (INTEROP §3.3):
+    the dialect-A pipe-append form a reference peer verifies. Golden §2.1 -> ``167fef4e...``."""
     return ReferenceDialect().commit(terms, nonce)
 
 
@@ -96,11 +125,8 @@ def verify_agreement_signature(terms: dict[str, Any], nonce: str, signature: str
 def verify_terms(mine: dict[str, Any], theirs: dict[str, Any]) -> None:
     """Exact-dict-equality gate (INTEROP §4 step 3a) — NegotiationError on divergence.
 
-    Equality is judged per key on the canonical WIRE bytes, so types matter exactly as
-    they do on the wire (``0.1`` float vs ``"0.1"`` string, ``35`` int vs ``35.0``
-    float, ``true`` bool vs ``1`` int all mismatch — §7 landmine 9). The error names
-    the FIRST diverging key in sorted-key order (deterministic on both peers). There
-    is no in-protocol bargaining: terms are agreed out-of-band and typed identically.
+    Per-key equality is on canonical WIRE bytes, so types matter (float vs str vs int vs
+    bool all mismatch — §7 landmine 9); names the FIRST diverging key in sorted order.
     """
     if not isinstance(theirs, dict):
         raise NegotiationError(f"opponent terms is not a dict: {type(theirs).__name__}")
