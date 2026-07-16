@@ -71,19 +71,19 @@ class PeerRuntime:
         self.sender = TurnSender(
             self.role, barriers_max=game(f"{movement}.max_barriers"),
             survival_threshold=game(f"{movement}.survival_threshold"),
-            hint_max_words=game("world.hint_max_words"), setting=game("world.map_area"))
+            hint_max_words=game("world.hint_max_words"), setting=game("world.map_area"),
+            brain_deadline=float(config.private("network.brain_deadline_seconds")))
         self.turn_timeout = float(config.private("network.turn_timeout_seconds"))
         self.audit_timeout = float(config.private("network.audit_send_timeout_seconds"))
 
     def _notify(self, status: str, hint_in: str = "", hint_out: str = "") -> None:
         """Push a board snapshot to the optional live observer; a viewer never breaks the game."""
-        if self.observer is None:
-            return
-        try:
-            from pursuit.interface.live_view import board_snapshot  # lazy: GUI-only, no Tk
-            self.observer(board_snapshot(self, status, hint_in, hint_out))
-        except Exception:  # noqa: BLE001 — a viewer must never break the game
-            pass
+        if self.observer is not None:
+            try:  # lazy import keeps Tk out of the headless game path
+                from pursuit.interface.live_view import board_snapshot
+                self.observer(board_snapshot(self, status, hint_in, hint_out))
+            except Exception:  # noqa: BLE001 — a viewer must never break the game
+                pass
 
     def run(self) -> SubgameOutcome:
         """Handshake → step-0 seal → thief-first turn loop → mutual audit → outcome."""
@@ -101,10 +101,9 @@ class PeerRuntime:
         if self.fsm.state is not State.GAME_OVER:
             self.fsm.advance(State.GAME_OVER)
         self.fsm.advance(State.AUDITING)  # the audit runs on EVERY ending (D4/A6)
-        audit = exchange_audits(self.role, result, self.log, self.transport,
-                                self.inboxes.audits, self.deadlines, self.audit_timeout,
-                                self.handshake.opponent_pubkey, self.handler.commits,
-                                self.state.board)
+        audit = exchange_audits(self.role, result, self.log, self.transport, self.inboxes.audits,
+                                self.deadlines, self.audit_timeout, self.handshake.opponent_pubkey,
+                                self.handler.commits, self.state.board)
         if audit["forgery"]:
             result, winner = GameResult.TECHNICAL_LOSS, None  # provable forgery (A9a)
         self.fsm.advance(State.DONE)

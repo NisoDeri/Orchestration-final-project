@@ -39,6 +39,7 @@ mcp_servers = {{ cop = "http://c/mcp", thief = "http://t/mcp" }}
 my_port = 8802
 opponent_url = "http://127.0.0.1:8801/mcp"
 turn_timeout_seconds = {turn}
+brain_deadline_seconds = 0.0
 poll_interval_seconds = 0.01
 connect_timeout_seconds = 5.0
 retry_interval_seconds = 0.01

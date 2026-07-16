@@ -50,7 +50,7 @@ def make_game(survival=10, max_moves=10, barriers=3, thief_start=(2, 1)) -> dict
 def make_config(game: dict, gid: str, **net_over) -> ConfigManager:
     network = {"turn_timeout_seconds": 10.0, "poll_interval_seconds": 0.01,
                "connect_timeout_seconds": 5.0, "retry_interval_seconds": 0.01,
-               "audit_send_timeout_seconds": 5.0}
+               "audit_send_timeout_seconds": 5.0, "brain_deadline_seconds": 0.0}
     network.update(net_over)
     private = {"version": "0.1.0",
                "game": {"group_id": gid, "group_name": gid.title(), "members": ["A", "B"],
