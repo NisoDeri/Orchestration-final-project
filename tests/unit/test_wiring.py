@@ -19,7 +19,7 @@ from pursuit.constants import Role
 from pursuit.interface.cli_replay import replay_command
 from pursuit.interface.live_view import board_snapshot
 from pursuit.peer.sealing import SealedLog
-from pursuit.sdk.series import _maybe_email
+from pursuit.sdk.series_log import maybe_email
 from pursuit.shared.config import ConfigManager
 from pursuit.strategy.ollama_talk import OllamaTalk
 from pursuit.strategy.resolve import resolve_brain
@@ -110,7 +110,7 @@ def test_maybe_email_is_a_noop_when_disabled(monkeypatch):
         raise AssertionError("email must not be constructed when disabled")
 
     monkeypatch.setattr(email_mod, "GmailSender", _forbidden)
-    _maybe_email(ConfigManager({}, {"email": {"enabled": False}}, {}), _SUMMARY)
+    maybe_email(ConfigManager({}, {"email": {"enabled": False}}, {}), _SUMMARY, {"_schema": "r"})
 
 
 def test_maybe_email_sends_through_gatekeeper_when_enabled(monkeypatch):
@@ -123,9 +123,9 @@ def test_maybe_email_sends_through_gatekeeper_when_enabled(monkeypatch):
 
     monkeypatch.setattr(email_mod, "GmailSender", _FakeSender)
     cfg = ConfigManager({"rate_limiter_gatekeeper": {}}, {"email": {"enabled": True}}, {})
-    _maybe_email(cfg, _SUMMARY)
+    maybe_email(cfg, _SUMMARY, {"_schema": "final_game_result", "game_id": "g"})
     assert calls["subject"] == "pursuit result nis-yar1-vs-opp"
-    assert calls["body"]["_schema"]  # a real result artifact was built and passed
+    assert calls["body"]["_schema"] == "final_game_result"  # the result artifact was forwarded
 
 
 # --- CLI: replay + agent-vs-agent dispatch ---------------------------------------------------

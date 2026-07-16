@@ -95,3 +95,59 @@ def write_json(path: Path, data: dict[str, Any]) -> None:
     """Emit ``data`` as pretty UTF-8 JSON, creating parent dirs as needed."""
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def _opponent(summary: dict[str, Any], my_gid: str) -> str:
+    return next((g for g in summary.get("totals", {}) if g != my_gid), "opponent")
+
+
+def emit_artifacts(config: Any, summary: dict[str, Any], logs: list[dict[str, Any]],
+                   sysinfo: dict[str, Any], github_commit: str,
+                   keypair: tuple[bytes, bytes], out_dir: Path) -> list[str]:
+    """Build + write the FOUR standardized artifacts (declaration/config/log/result).
+
+    Best-effort and non-fatal: a reporting error never aborts a finished series.
+    """
+    import base64
+
+    from pursuit.domain.negotiation import build_terms
+    from pursuit.report.artifacts import (
+        build_config_artifact,
+        build_declaration,
+        build_log_artifact,
+        build_result_artifact,
+        write_artifacts,
+    )
+    try:
+        my_gid = str(summary.get("group_id", ""))
+        counted = 0
+        try:
+            counted = int(config.private("game.counted_games_so_far"))
+        except Exception:  # noqa: BLE001
+            counted = 0
+        declaration = build_declaration(
+            sysinfo, my_gid, config.private("game.members"), github_commit, counted,
+            base64.b64encode(keypair[1]).decode("ascii"), config.private("game.repos"))
+        config_art = build_config_artifact(config.config_sha256(), build_terms(config))
+        result = build_result_artifact(summary, my_gid, _opponent(summary, my_gid))
+        log_arts = [build_log_artifact(doc) for doc in logs]
+        paths = write_artifacts(out_dir, declaration, config_art, result, log_arts)
+        maybe_email(config, summary, result)
+        return paths
+    except Exception:  # noqa: BLE001 — reporting must never crash a completed series
+        return []
+
+
+def maybe_email(config: Any, summary: dict[str, Any], result: dict[str, Any]) -> None:
+    """Opt-in (private ``email.enabled``): send the result artifact via the email Gatekeeper."""
+    try:
+        if not bool(config.private("email.enabled")):
+            return
+        from pursuit.infra.email import GmailSender
+        from pursuit.infra.gatekeeper import Gatekeeper
+
+        subject = f"pursuit result {summary.get('game_id', '')}"
+        Gatekeeper.from_config(config, "email").execute(
+            GmailSender().send_result, subject, result)  # result = the canonical artifact dict
+    except Exception:  # noqa: BLE001 — a send failure must NEVER crash the series
+        pass
