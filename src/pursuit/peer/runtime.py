@@ -16,9 +16,11 @@ from pursuit.peer.audit import SubgameOutcome, exchange_audits
 from pursuit.peer.deadlines import DeadlineTracker
 from pursuit.peer.fsm import GameStateMachine, State
 from pursuit.peer.handshake import Handshake, run_handshake
+from pursuit.peer.hint_fusion import build_hint_fuser
 from pursuit.peer.sealing import SealedLog
 from pursuit.peer.turn_handler import TURN, TurnHandler
 from pursuit.peer.turn_sender import TurnSender
+from pursuit.shared.config import scent_params
 
 
 class AgreementsView:
@@ -30,16 +32,6 @@ class AgreementsView:
         if item is None:
             raise queue.Empty
         return item
-
-
-def _scent_cfg(game: Any) -> dict[str, Any]:
-    """Adapt the signed pheromones block to the ScentParams vocabulary."""
-    paths = {"dialect": "pheromones.dialect", "board_size": "board_and_agents.grid_size",
-             "smell_grid_size": "pheromones.pheromone_grid_size",
-             "emit_intensity": "pheromones.pheromone_center_intensity",
-             "decay_per_step": "pheromones.pheromone_decay",
-             "min_center_intensity": "pheromones.pheromone_min_center_intensity"}
-    return {key: game(path) for key, path in paths.items()}
 
 
 class PeerRuntime:
@@ -59,8 +51,9 @@ class PeerRuntime:
         board = Board(game("board_and_agents.grid_size"), game(f"{movement}.move_set"))
         start = "cop_start" if self.role is Role.POLICE else "thief_start"
         self.state = OwnGameState(board, tuple(game(f"board_and_agents.{start}")))
-        self.scent_mine = make_scent_model(_scent_cfg(game))
-        self.scent_reader = make_scent_model(_scent_cfg(game))  # mirror of THEIR trail
+        self.scent_mine = make_scent_model(scent_params(game))
+        self.scent_reader = make_scent_model(scent_params(game))  # mirror of THEIR trail
+        self.fuser = build_hint_fuser(config)  # live hint→belief fusion, gated + non-fatal
         self.log, self.table = SealedLog(game("crypto")), ScoreTable(game("scoring"))
         self.fsm, self.deadlines = GameStateMachine(), DeadlineTracker(clock)
         self.max_moves = int(game(f"{movement}.max_moves"))
@@ -141,6 +134,8 @@ class PeerRuntime:
                 if processed.game_over:  # max_breaches consecutive rejects (D4)
                     return (GameResult.TECHNICAL_LOSS, None)
                 continue
+            if self.fuser is not None:  # E1 live hint fusion (gated); belief already smelled
+                self.fuser.fuse(self.belief, processed.hint)
             response = processed.claim_response_due
             if processed.game_over:  # their concession answer or validated win_claim
                 return ((GameResult.CAPTURE, Role.POLICE) if processed.opponent_caught

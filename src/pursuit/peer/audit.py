@@ -84,5 +84,6 @@ def exchange_audits(role: Role, result: GameResult, log: SealedLog, transport: A
             theirs.records[0].payload, opponent_pubkey.encode("ascii")):
         failed = [0]  # forged D14 hardware/ledger declaration (rulings A7/A9b)
     audit.update(passed=not failed, forgery=bool(failed), opponent_received=True,
-                 steps=steps, failed_steps=failed, their_claim=theirs.result_claim)
+                 steps=steps, failed_steps=failed, their_claim=theirs.result_claim,
+                 their_records=[rec.to_wire() for rec in theirs.records])  # E2 profiler intake
     return audit

@@ -136,3 +136,13 @@ class ConfigManager:
         from pursuit.domain.negotiation import build_terms
 
         return sha256_hex(canonical_bytes(build_terms(self)))
+
+
+def scent_params(game: Any) -> dict[str, Any]:
+    """Adapt the signed pheromones block to the ScentParams vocabulary (shared helper)."""
+    paths = {"dialect": "pheromones.dialect", "board_size": "board_and_agents.grid_size",
+             "smell_grid_size": "pheromones.pheromone_grid_size",
+             "emit_intensity": "pheromones.pheromone_center_intensity",
+             "decay_per_step": "pheromones.pheromone_decay",
+             "min_center_intensity": "pheromones.pheromone_min_center_intensity"}
+    return {key: game(path) for key, path in paths.items()}

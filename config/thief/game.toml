@@ -13,6 +13,8 @@ mcp_servers = { cop = "http://127.0.0.1:8802/mcp", thief = "http://127.0.0.1:880
 # BeliefV2 config (STRATEGY.md §2, D6) — all keys required by BeliefV2.__init__
 smell_trust_weight = 4.0
 hint_trust_prior = 0.5         # reliability coefficient r_0 (Beta ledger prior)
+reliability_forget = 0.95      # ledger forgetting factor (tracks policy-switching liars)
+hint_prior_strength = 2.0      # Beta pseudo-count strength for the profiler-seeded prior
 sigma_obs = 0.1                # scent observation noise (emission-profile inversion §2.2)
 zero_scent_weight = 0.6        # negative-evidence weight for zero-scent cells (§2.3)
 resync_floor = 1.0e-8          # log-likelihood floor below which we resync belief
@@ -36,6 +38,8 @@ jail_min_mobility = 2         # stay same; default 2
 [strategy]
 police_class = "pursuit.strategy.police:InterceptorPoliceBrain"
 thief_class = "pursuit.strategy.thief:SurvivorThiefBrain"
+profile_opponent = true   # E2 cross-sub-game lie-profiler seeds the next sub-game's r_0
+fuse_hints = true         # E1 live hint->belief fusion (book p.63); gated + non-fatal
 
 [trash_talk]
 provider = "template"          # template | ollama; gauntlet champion set after lab E10
