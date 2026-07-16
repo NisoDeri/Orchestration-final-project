@@ -103,7 +103,8 @@ class PeerRuntime:
         self.fsm.advance(State.AUDITING)  # the audit runs on EVERY ending (D4/A6)
         audit = exchange_audits(self.role, result, self.log, self.transport,
                                 self.inboxes.audits, self.deadlines, self.audit_timeout,
-                                self.handshake.opponent_pubkey, self.handler.commits)
+                                self.handshake.opponent_pubkey, self.handler.commits,
+                                self.state.board)
         if audit["forgery"]:
             result, winner = GameResult.TECHNICAL_LOSS, None  # provable forgery (A9a)
         self.fsm.advance(State.DONE)

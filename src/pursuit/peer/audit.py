@@ -17,6 +17,7 @@ from typing import Any
 from pursuit.constants import GameResult, Role
 from pursuit.domain.protocol_audit import AuditPayload, AuditRecord
 from pursuit.exceptions import DeadlineError, TransportError
+from pursuit.peer.replay_audit import trajectory_mismatches
 from pursuit.peer.sealing import SealedLog, verify_step0_signature
 
 
@@ -53,7 +54,8 @@ def _reveal_mismatches(records: Any, live_commits: dict[int, str]) -> list[int]:
 def exchange_audits(role: Role, result: GameResult, log: SealedLog, transport: Any,
                     audits_inbox: Any, deadlines: Any, audit_timeout: float,
                     opponent_pubkey: str | None,
-                    live_commits: dict[int, str] | None = None) -> dict[str, Any]:
+                    live_commits: dict[int, str] | None = None,
+                    board: Any = None) -> dict[str, Any]:
     """A8 stage 4: reveal every nonce both ways; verify theirs; report per-step results.
 
     Beyond recomputing each revealed commit, we BIND every revealed commit to the one the
@@ -76,6 +78,8 @@ def exchange_audits(role: Role, result: GameResult, log: SealedLog, transport: A
     steps = SealedLog.audit_verify([rec.to_wire() for rec in theirs.records], log.dialect)
     failed = [step["step"] for step in steps if not step["ok"]]
     failed = sorted(set(failed) | set(_reveal_mismatches(theirs.records, live_commits or {})))
+    if board is not None:  # semantic replay: the revealed trajectory must be physically legal
+        failed = sorted(set(failed) | set(trajectory_mismatches(theirs.records, board)))
     if not failed and opponent_pubkey and theirs.records and not verify_step0_signature(
             theirs.records[0].payload, opponent_pubkey.encode("ascii")):
         failed = [0]  # forged D14 hardware/ledger declaration (rulings A7/A9b)
