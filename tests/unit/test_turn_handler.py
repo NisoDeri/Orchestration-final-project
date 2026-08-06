@@ -202,6 +202,15 @@ def test_duplicate_delivery_is_dropped_idempotently() -> None:
     assert fsm.state is State.MY_TURN  # no double advance
 
 
+def test_equivocation_different_commit_for_played_step_is_a_breach() -> None:
+    rig = make_rig(Role.THIEF)
+    message = Opponent(Role.POLICE, (1, 1)).message(barrier_placed=[1, 2])
+    assert process(rig, message).kind == TURN  # step 1 applied; its commit is retained
+    forged = {**message, "commit": "b" * 64}  # SAME step, DIFFERENT commit -> equivocation (§7.1)
+    result = process(rig, forged)
+    assert result.kind == BREACH and "equivocation" in (result.breach_reason or "")
+
+
 # --- breach paths (rule 5 / D4) ---------------------------------------------------------------
 BREACH_CASES = [
     ("wrong_sender", Role.THIEF, {"sender": "thief"}),
