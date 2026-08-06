@@ -18,10 +18,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from pursuit.constants import DIRECTION_DELTAS, MoveType
-from pursuit.domain.protocol_audit import parse_move_string
-from pursuit.exceptions import TransportError
-
 
 def _payload(record: Any) -> dict[str, Any]:
     """The record's payload dict whether it is an AuditRecord or a raw wire dict."""
@@ -39,35 +35,29 @@ def _cell(value: Any) -> tuple[int, int] | None:
 
 
 def trajectory_mismatches(records: Any, board: Any) -> list[int]:
-    """Steps whose revealed move-string is inconsistent with the revealed position path.
+    """Steps whose revealed POSITION TRAIL is physically impossible — the interop-safe physics.
 
-    Total over adversarial input: a malformed record fails its step, never crashes.
+    Judged from the trail, NEVER the move-string spelling (kit §7.1 / sparring audit.py: a peer
+    may name its moves differently, or legitimately seal a blocked move against the direction it
+    ATTEMPTED — treating either as tampering "called an honest, sealed, counted series TAMPERED").
+    A step fails only when its revealed position is off-board or jumps MORE THAN ONE orthogonal
+    cell from the previous revealed position — a teleport/diagonal the physics forbid. A record
+    without a position is a legitimate schema (action+state only) and is skipped, never accused.
+    Total over adversarial input: never crashes.
     """
     bad: list[int] = []
     prev: tuple[int, int] | None = None
-    expected_step = 1
     for record in records:
         payload = _payload(record)
         step = payload.get("step")
-        if step == 0:  # the step-0 signed declaration carries no move/position
+        if not isinstance(step, int) or step < 1:  # step-0 declaration / unlabelled: no trail
             continue
-        marker = step if isinstance(step, int) else expected_step
         pos = _cell(payload.get("position"))
-        try:
-            move_type, direction = parse_move_string(payload.get("move"))
-        except TransportError:
-            bad.append(marker)
-            prev, expected_step = pos, expected_step + 1
+        if pos is None:  # a position-less schema carries no trail to judge — a note, not a fault
             continue
-        if pos is None or not board.in_bounds(pos):
-            bad.append(marker)
-        elif step != expected_step:
-            bad.append(marker)  # a gap/duplicate in the sealed chain
-        elif prev is not None:
-            moved = move_type is MoveType.MOVE and direction is not None
-            dr, dc = DIRECTION_DELTAS[direction] if moved else (0, 0)
-            if pos != (prev[0] + dr, prev[1] + dc):  # teleport / move!=position delta
-                bad.append(marker)
-        prev = pos if pos is not None else prev
-        expected_step += 1
+        if not board.in_bounds(pos):
+            bad.append(step)
+        elif prev is not None and abs(pos[0] - prev[0]) + abs(pos[1] - prev[1]) > 1:
+            bad.append(step)  # teleport / diagonal: more than one orthogonal step in one turn
+        prev = pos
     return sorted(set(bad))
