@@ -16,6 +16,7 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
+from pursuit.report.consensus import settlement
 from pursuit.report.schema import (
     DEFAULT_TIMEZONE,
     SCHEMA_CONFIG,
@@ -95,7 +96,7 @@ def build_result_artifact(series_summary: Mapping[str, Any], group_id: str,
     tokens_total = {gid: sum(row["tokens"].get(gid, 0) for row in rows)
                     for gid in group_ids}
     mutual_sha = str(series_summary.get("config_sha256", ""))
-    return {
+    artifact = {
         "_schema": SCHEMA_RESULT,
         "schema_version": SCHEMA_VERSION,
         "report_type": "final_game_result",
@@ -119,6 +120,9 @@ def build_result_artifact(series_summary: Mapping[str, Any], group_id: str,
             "confirmed": all(row["audit"]["log_verified"] for row in rows),
         },
     }
+    # kit §6 CORE: the cross-team settlement consensus (spaced sig, sign-then-insert).
+    artifact["settlement"] = settlement(artifact)
+    return artifact
 
 
 def _dump(path: Path, data: Mapping[str, Any]) -> str:
