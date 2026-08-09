@@ -57,6 +57,25 @@ class FlakyTransport(QueueTransport):
         super().negotiate(message)
 
 
+class DelayedAgreementTransport(QueueTransport):
+    """Opponent only answers after seeing repeated offers for the same window."""
+
+    def __init__(self, opponent_inboxes, own_inboxes, reply: dict, after: int) -> None:
+        super().__init__(opponent_inboxes)
+        self._own_inboxes = own_inboxes
+        self._reply = reply
+        self._after = after
+        self.offers = 0
+
+    def negotiate(self, message: dict) -> None:
+        self.offers += 1
+        super().negotiate(message)
+        if self.offers == self._after:
+            self._own_inboxes.agreements.put(
+                json.loads(json.dumps(self._reply, ensure_ascii=False))
+            )
+
+
 def make_config(group_id: str, mutate_game=None, counted: int | None = 3) -> ConfigManager:
     game = json.loads((ROOT / "config" / "police" / "game.json").read_text(encoding="utf-8"))
     if mutate_game is not None:
@@ -111,7 +130,17 @@ class TestAgreementMessage:
         from pursuit.domain.negotiation import verify_agreement_signature
 
         message = build_agreement_message(make_config("aa-team"), keypairs[0][1])
-        assert set(message) == {"terms", "nonce", "signature", "identity"}
+        assert {"terms", "nonce", "signature", "identity"}.issubset(message)
+        assert message["config_sha256"] == (
+            "32483c7bbc21ba83741fed8cfeab60e4670577feef84dba38daf3ad7179bcbc6"
+        )
+        assert message["scent_model_sha256"] == (
+            "81ebee59640e80eae8ca9ee5f86abd26e7edf5cdbb27d15925cb6ee45ca6ddf4"
+        )
+        assert message["wire_shape_sha256"] == (
+            "229ae6487a418c3fcb6da9be404de2f2533c288ebc228811bff6dedc4164d6f7"
+        )
+        assert message["commit_order"] == "thief_first"
         assert len(message["nonce"]) == 32 and int(message["nonce"], 16) >= 0
         assert verify_agreement_signature(
             message["terms"], message["nonce"], message["signature"])
@@ -126,6 +155,14 @@ class TestAgreementMessage:
     def test_counted_games_defaults_to_zero_for_fresh_ledger(self, keypairs):
         identity = build_identity(make_config("aa-team", counted=None), keypairs[0][1])
         assert identity["counted_games_so_far"] == 0
+
+    def test_runtime_scent_override_changes_declared_lock(self, keypairs):
+        cfg = make_config("aa-team")
+        cfg.override_game("pheromones.dialect", "multiplicative_book_v1")
+        message = build_agreement_message(cfg, keypairs[0][1])
+        assert message["scent_model_sha256"] == (
+            "934c220d5bf62acaa3297c6c9d723ea954c220260b02292ca17f6d5daef9f4d9"
+        )
 
 
 class TestSuccessfulHandshake:
@@ -169,6 +206,21 @@ class TestSuccessfulHandshake:
         assert transport_a.attempts == 4
         assert result.game_id == "aa-team-vs-zz-team"
 
+    def test_reoffers_agreement_while_waiting_for_counterpart(self, keypairs):
+        kp_a, kp_b = keypairs
+        inboxes_a, inboxes_b = make_inboxes(), make_inboxes()
+        reply = build_agreement_message(
+            make_config("zz-team"), kp_b[1], sub_game_number=5, role="police"
+        )
+        transport_a = DelayedAgreementTransport(inboxes_b, inboxes_a, reply, after=3)
+        clock = FakeClock()
+        result = run_handshake(
+            transport_a, inboxes_a, make_config("aa-team"), kp_a,
+            clock=clock, sleep=clock.sleep, sub_game_number=5, role="thief"
+        )
+        assert result.game_id == "aa-team-vs-zz-team"
+        assert transport_a.offers == 3
+
 
 class TestRefusals:
     def _seed_and_run(self, keypairs, message):
@@ -204,6 +256,17 @@ class TestRefusals:
         del message["identity"]["group_id"]
         with pytest.raises(CryptoError, match="group_id"):
             self._seed_and_run(keypairs, message)
+
+    def test_lock_mismatch_refused_when_both_declare(self, keypairs):
+        message = build_agreement_message(make_config("zz-team"), keypairs[1][1])
+        message["scent_model_sha256"] = "0" * 64
+        with pytest.raises(NegotiationError, match="scent_model_sha256"):
+            self._seed_and_run(keypairs, message)
+
+    def test_lock_omission_still_plays(self, keypairs):
+        message = build_agreement_message(make_config("zz-team"), keypairs[1][1])
+        del message["scent_model_sha256"]
+        assert self._seed_and_run(keypairs, message).game_id == "aa-team-vs-zz-team"
 
     def test_empty_inbox_deadline(self, keypairs):
         kp_a, _ = keypairs

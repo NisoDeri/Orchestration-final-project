@@ -21,6 +21,16 @@ from pursuit.exceptions import CryptoError, DeadlineError, NegotiationError, Tra
 from pursuit.peer.agreement import build_agreement_message
 from pursuit.shared.config import ConfigManager
 
+OPTIONAL_LOCK_FIELDS: tuple[str, ...] = (
+    "config_sha256",
+    "scent_model_sha256",
+    "wire_shape_sha256",
+    "info_mode_sha256",
+    "smell_binding_sha256",
+    "schema_version",
+    "commit_order",
+)
+
 
 class Transport(Protocol):
     """Outbound wire seam: one ``negotiate`` push (may raise TransportError)."""
@@ -80,6 +90,22 @@ def _assert_pairing(my_num: Any, my_role: Any, theirs: dict[str, Any]) -> None:
         raise NegotiationError(f"pairing refused: both declared role={my_role!r} (§7.2)")
 
 
+def _is_stale_pairing(my_num: Any, theirs: dict[str, Any]) -> bool:
+    """A lower opponent sub-game number is a delayed duplicate from an old window."""
+    their_num = theirs.get("sub_game_number")
+    return _is_int(my_num) and _is_int(their_num) and their_num < my_num
+
+
+def _assert_optional_locks(mine: dict[str, Any], theirs: dict[str, Any]) -> None:
+    """Refuse only on two-sided optional declarations that disagree."""
+    for key in OPTIONAL_LOCK_FIELDS:
+        ours, theirs_value = mine.get(key), theirs.get(key)
+        if isinstance(ours, str) and isinstance(theirs_value, str) and ours != theirs_value:
+            raise NegotiationError(
+                f"lock mismatch at '{key}': ours={ours!r} theirs={theirs_value!r}"
+            )
+
+
 def _receive_agreement(inboxes: Inboxes, deadline: float, poll: float, clock, sleep) -> dict:
     while True:
         try:
@@ -92,6 +118,41 @@ def _receive_agreement(inboxes: Inboxes, deadline: float, poll: float, clock, sl
         if not isinstance(message, dict):
             raise CryptoError(f"malformed agreement message: {type(message).__name__}")
         return message
+
+
+def _receive_with_reoffer(
+    transport: Transport,
+    inboxes: Inboxes,
+    message: dict,
+    deadline: float,
+    retry: float,
+    poll: float,
+    clock,
+    sleep,
+) -> dict:
+    """Wait for their agreement while periodically re-sending ours.
+
+    A streamable-HTTP tool ACK only means their MCP edge accepted the call; with
+    fixed-role per-window runners it may arrive before that specific window worker
+    is armed. Keep advertising our current window until the counterpart arrives.
+    """
+    next_offer = clock() + retry
+    while True:
+        try:
+            theirs = inboxes.agreements.get_nowait()
+        except queue.Empty:
+            now = clock()
+            if now >= deadline:
+                raise DeadlineError("opponent never sent its agreement") from None
+            if now >= next_offer:
+                _send_with_retry(transport, message, deadline, retry, clock, sleep)
+                next_offer = clock() + retry
+                continue
+            sleep(min(poll, max(0.0, next_offer - now, deadline - now)))
+            continue
+        if not isinstance(theirs, dict):
+            raise CryptoError(f"malformed agreement message: {type(theirs).__name__}")
+        return theirs
 
 
 def run_handshake(
@@ -119,18 +180,24 @@ def run_handshake(
     deadline = clock() + float(config.private("network.connect_timeout_seconds"))
 
     _send_with_retry(transport, mine, deadline, retry, clock, sleep)
-    theirs = _receive_agreement(inboxes, deadline, poll, clock, sleep)
-
-    their_terms, their_nonce = theirs.get("terms"), theirs.get("nonce")
-    their_signature = theirs.get("signature")
-    if not isinstance(their_terms, dict) or not isinstance(their_nonce, str):
-        raise CryptoError("agreement message missing terms/nonce")
-    verify_terms(mine["terms"], their_terms)  # step 3a — exact equality first
-    if not isinstance(their_signature, str) or not verify_agreement_signature(
-        their_terms, their_nonce, their_signature
-    ):
-        raise CryptoError("agreement signature mismatch — refusing to play (INTEROP §4.3b)")
-    _assert_pairing(sub_game_number, role, theirs)  # §7.2 pairing declaration guard
+    while True:
+        theirs = _receive_with_reoffer(
+            transport, inboxes, mine, deadline, retry, poll, clock, sleep
+        )
+        if _is_stale_pairing(sub_game_number, theirs):
+            continue
+        their_terms, their_nonce = theirs.get("terms"), theirs.get("nonce")
+        their_signature = theirs.get("signature")
+        if not isinstance(their_terms, dict) or not isinstance(their_nonce, str):
+            raise CryptoError("agreement message missing terms/nonce")
+        verify_terms(mine["terms"], their_terms)  # step 3a — exact equality first
+        if not isinstance(their_signature, str) or not verify_agreement_signature(
+            their_terms, their_nonce, their_signature
+        ):
+            raise CryptoError("agreement signature mismatch — refusing to play (INTEROP §4.3b)")
+        _assert_optional_locks(mine, theirs)
+        _assert_pairing(sub_game_number, role, theirs)  # §7.2 pairing declaration guard
+        break
 
     identity = theirs.get("identity")
     identity = identity if isinstance(identity, dict) else {}

@@ -103,8 +103,6 @@ class TestValidateAgreement:
             "movement_and_barriers.max_barriers",
             "movement_and_barriers.survival_threshold",
             "scoring.tie_score",
-            "pheromones.dialect",
-            "crypto.dialect",
         ],
     )
     def test_deleted_term_fails_naming_term_and_file(self, tmp_path, term):
@@ -121,6 +119,11 @@ class TestValidateAgreement:
     def test_every_required_term_exists_in_shipped_tree(self, cfg):
         for term in REQUIRED_AGREED_TERMS:
             assert cfg.game(term) is not None
+
+    def test_partner_config_aliases_and_defaults(self, cfg):
+        assert cfg.game("pheromones.pheromone_min_center_intensity") == 0.5
+        assert cfg.game("pheromones.dialect") == "reference"
+        assert cfg.game("crypto.dialect") == "reference"
 
 
 class TestNamingAndHash:

@@ -17,8 +17,9 @@ from pursuit.infra.transport import FakeTransport
 from pursuit.peer.agreement import build_agreement_message
 from pursuit.peer.inboxes import PeerInboxes
 from pursuit.sdk import run_lab, run_peer
-from pursuit.sdk.series import ScentBelief
+from pursuit.sdk.series import ScentBelief, logical_subgame_numbers
 from pursuit.shared.config import ConfigManager
+from pursuit.constants import Role
 
 GID = "nis-yar1"
 SPEC = {"os": "TestOS", "cpu_type": "TestCPU", "cpu_freq_mhz": 1, "cpu_cores": 1,
@@ -61,6 +62,7 @@ logs_dir = "logs"
 
 def make_game(num_games=1, survival=6, max_moves=6) -> dict:
     return {
+        "agreed_between": ["anrbj666", "nis-yar1"],
         "board_and_agents": {"grid_size": 7, "thief_start": [3, 3], "cop_start": [0, 0],
                              "axis_origin_corner": "top-left", "axis_start_index": 0},
         "world": {"map_area": "New York", "hint_max_words": 15},
@@ -139,6 +141,11 @@ class TestFakeOpponentSeries:
         summary = run_fake(write_config(tmp_path / "cfg", num_games=1), tmp_path,
                            num_games=None)
         assert summary["num_sub_games"] == 1  # network_and_league.num_games, not a literal
+
+    def test_fixed_role_uses_pairing_window_numbers(self, tmp_path):
+        cfg = ConfigManager.load(write_config(tmp_path / "cfg", num_games=6))
+        assert logical_subgame_numbers(cfg, Role.THIEF, 3, alternate=False) == [1, 3, 5]
+        assert logical_subgame_numbers(cfg, Role.POLICE, 3, alternate=False) == [2, 4, 6]
 
 
 class TestTimeoutPath:

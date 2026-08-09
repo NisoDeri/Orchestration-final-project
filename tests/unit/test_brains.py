@@ -199,6 +199,15 @@ def test_thief_increases_distance_vs_greedy_chaser() -> None:
     assert board.bfs_distance(cop, state.position, state.barriers) >= initial
 
 
+def test_thief_does_not_hold_on_mobility_plateau_when_escape_exists() -> None:
+    state = make_state((4, 4))
+    decision = thief(w_dist=1.2, w_mob=0.5, mobility_k=4).decide(
+        state, FakeBelief((0, 0)), "", "", MAX_BARRIERS
+    )
+    assert decision.move_type is MoveType.MOVE
+    assert decision.direction in {Direction.S, Direction.E}
+
+
 def test_thief_survives_unreachable_threat_cell() -> None:
     state = make_state((3, 3), barriers={(0, 1), (1, 0)})
     decision = thief().decide(state, FakeBelief((0, 0)), "", "", MAX_BARRIERS)

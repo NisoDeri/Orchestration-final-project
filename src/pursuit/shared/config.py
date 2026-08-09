@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import tomllib
+from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
@@ -87,7 +88,8 @@ class ConfigManager:
         private_terms: dict[str, Any],
         rate_limits: dict[str, Any],
     ) -> None:
-        self._game = game_terms
+        self._source_game = deepcopy(game_terms)
+        self._game = _runtime_game_terms(game_terms)
         self._private = private_terms
         self._rate_limits = rate_limits
 
@@ -152,9 +154,8 @@ class ConfigManager:
         The import is lazy: ``negotiation`` imports us, so a module-level import would cycle.
         """
         from pursuit.domain.crypto.canonical import canonical_bytes, sha256_hex
-        from pursuit.domain.negotiation import build_terms
 
-        return sha256_hex(canonical_bytes(build_terms(self)))
+        return sha256_hex(canonical_bytes(self._source_game))
 
 
 def scent_params(game: Any) -> dict[str, Any]:
@@ -165,3 +166,18 @@ def scent_params(game: Any) -> dict[str, Any]:
              "decay_per_step": "pheromones.pheromone_decay",
              "min_center_intensity": "pheromones.pheromone_min_center_intensity"}
     return {key: game(path) for key, path in paths.items()}
+
+
+def _runtime_game_terms(game_terms: dict[str, Any]) -> dict[str, Any]:
+    """Normalize partner-shared config variants without changing the config hash source."""
+    game = deepcopy(game_terms)
+    game.setdefault("schema_version", "1.3")
+    pheromones = game.setdefault("pheromones", {})
+    if (
+        "pheromone_min_center_intensity" not in pheromones
+        and "min_center_intensity" in pheromones
+    ):
+        pheromones["pheromone_min_center_intensity"] = pheromones["min_center_intensity"]
+    pheromones.setdefault("dialect", "reference")
+    game.setdefault("crypto", {}).setdefault("dialect", "reference")
+    return game

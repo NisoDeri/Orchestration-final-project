@@ -96,6 +96,33 @@ def counted_games(config: Any) -> int:
         return 0
 
 
+def logical_subgame_numbers(config: Any, role: Role, count: int, alternate: bool) -> list[int]:
+    """Return the sub-game numbers this process should declare.
+
+    Fixed-role two-endpoint play runs only the parity assigned to this group/role:
+    first sorted group is cop on odd sub-games, second sorted group is thief on odd sub-games.
+    """
+    if alternate:
+        return list(range(1, count + 1))
+    try:
+        pair = sorted(str(gid) for gid in config.game("agreed_between"))
+        signed_total = int(config.game("network_and_league.num_games"))
+        my_gid = str(config.private("game.group_id"))
+    except Exception:  # noqa: BLE001 - synthetic tests may omit pairing metadata
+        return list(range(1, count + 1))
+    if len(pair) != 2 or my_gid not in pair:
+        return list(range(1, count + 1))
+    first = pair[0] == my_gid
+
+    def role_for(number: int) -> Role:
+        odd = number % 2 == 1
+        if first:
+            return Role.POLICE if odd else Role.THIEF
+        return Role.THIEF if odd else Role.POLICE
+
+    return [number for number in range(1, signed_total + 1) if role_for(number) is role][:count]
+
+
 def run_series(config: Any, role: Role, num_games: int, transport: Any, inboxes: Any, *,
                keypair: tuple[bytes, bytes], brain_factory: Any, sysinfo: dict[str, Any],
                github_commit: str, watchdog: Any = None, observer: Any = None,
@@ -115,7 +142,7 @@ def run_series(config: Any, role: Role, num_games: int, transport: Any, inboxes:
     game_id = ""
     profiler = LieProfiler(config)  # E2 cross-sub-game lie-profiler (default off, non-fatal)
     logs: list[dict[str, Any]] = []  # per-sub-game docs -> the 4-artifact emission
-    for number in range(1, num_games + 1):
+    for number in logical_subgame_numbers(config, role, num_games, alternate):
         inboxes.turns.drain()  # stale-turn hygiene between sub-games (INTEROP §2.4);
         inboxes.audits.drain()  # safe: fresh turns only follow the new handshake
         role_now = role if (not alternate or number % 2 == 1) else role.opponent  # odd = my
@@ -124,7 +151,7 @@ def run_series(config: Any, role: Role, num_games: int, transport: Any, inboxes:
                               brain_factory(role_now), belief_for(config, role_now, profiler.prior),
                               keypair, sysinfo=sysinfo, github_commit=github_commit,
                               counted_games=counted_games(config), watchdog=watchdog,
-                              observer=observer)
+                              observer=observer, sub_game_number=number)
         outcome = runtime.run()
         game_id = outcome.game_id
         opp_gid = outcome.opponent_group or "opponent"

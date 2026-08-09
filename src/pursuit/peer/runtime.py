@@ -41,11 +41,13 @@ class PeerRuntime:
                  brain: Any, belief: Any, keypair: tuple[bytes, bytes], *,
                  handshake: Handshake | None = None, sysinfo: dict[str, Any] | None = None,
                  github_commit: str = "unknown", counted_games: int = 0,
-                 watchdog: Any = None, clock: Any = time.monotonic, observer: Any = None) -> None:
+                 watchdog: Any = None, clock: Any = time.monotonic, observer: Any = None,
+                 sub_game_number: int | None = None) -> None:
         self.role, self.opponent = Role(role), Role(role).opponent
         self.config, self.transport, self.inboxes = config, transport, inboxes
         self.brain, self.belief, self.keypair = brain, belief, keypair
         self.handshake, self.watchdog, self.observer = handshake, watchdog, observer
+        self.sub_game_number = sub_game_number
         self._step0_args = (dict(sysinfo or {}), github_commit, int(counted_games))
         game, movement = config.game, "movement_and_barriers"
         board = Board(game("board_and_agents.grid_size"), game(f"{movement}.move_set"))
@@ -83,8 +85,11 @@ class PeerRuntime:
         self.fsm.advance(State.NEGOTIATING)
         if self.handshake is None:  # the series may inject the pre-agreed handshake
             self.handshake = run_handshake(self.transport, AgreementsView(self.inboxes),
-                                           self.config, self.keypair)
-        self.log.step0_record(self.config, *self._step0_args, self.keypair)
+                                           self.config, self.keypair,
+                                           sub_game_number=self.sub_game_number,
+                                           role=self.role.value)
+        self.log.step0_record(self.config, *self._step0_args, self.keypair,
+                              sub_game_number=self.sub_game_number)
         self.fsm.advance(State.MY_TURN if self.role is Role.THIEF else State.OPP_TURN)
         try:
             result, winner = self._turn_loop()

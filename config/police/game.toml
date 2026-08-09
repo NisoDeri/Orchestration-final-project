@@ -55,11 +55,11 @@ max_lie_rate = 0.35
 
 [network]
 my_port = 8802
-opponent_url = "http://127.0.0.1:8801/mcp"
+opponent_url = "https://thief-mcp.alon.website/mcp"
 turn_timeout_seconds = 180
 brain_deadline_seconds = 15.0   # wall-clock bound on our move (peer/brain_clock); a hung brain -> safe HOLD
 poll_interval_seconds = 0.5
-connect_timeout_seconds = 60
+connect_timeout_seconds = 900
 retry_interval_seconds = 1.0
 audit_send_timeout_seconds = 10
 

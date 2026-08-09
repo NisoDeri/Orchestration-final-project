@@ -85,7 +85,48 @@ class SurvivorThiefBrain(BrainBase):
                 value -= ban
             return value
 
-        return max(moves, key=lambda move: score(move[1]))  # ties -> move_set order
+        best = max(moves, key=lambda move: score(move[1]))  # ties -> move_set order
+        if best[0] is not Direction.STAY:
+            return best
+        escape = self._non_stay_escape(board, moves, state.position, threat, barriers)
+        return escape if escape is not None else best
+
+    def _non_stay_escape(
+        self,
+        board: Any,
+        moves: list[tuple[Direction, Cell]],
+        position: Cell,
+        threat: Cell,
+        barriers: set[Cell],
+    ) -> tuple[Direction, Cell] | None:
+        """Prefer real motion over a static mobility plateau when it does not lose distance."""
+        far = board.size * board.size
+        current = board.bfs_distance(position, threat, barriers)
+        current_distance = far if current is None else current
+        candidates: list[tuple[Direction, Cell]] = []
+        for direction, cell in moves:
+            if direction is Direction.STAY:
+                continue
+            distance = board.bfs_distance(cell, threat, barriers)
+            distance_value = far if distance is None else distance
+            if distance_value < current_distance:
+                continue
+            if self._opponent_charges > 0 and self._exits(board, cell, barriers) < (
+                self.jail_min_mobility
+            ):
+                continue
+            candidates.append((direction, cell))
+        if not candidates:
+            return None
+
+        def rank(move: tuple[Direction, Cell]) -> tuple[int, int]:
+            _direction, cell = move
+            distance = board.bfs_distance(cell, threat, barriers)
+            distance_value = far if distance is None else distance
+            mobility = len(board.reachable_cells(cell, barriers, self.mobility_k))
+            return (distance_value, mobility)
+
+        return max(candidates, key=rank)
 
     @staticmethod
     def _exits(board: Any, cell: Cell, barriers: set[Cell]) -> int:

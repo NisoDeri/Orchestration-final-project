@@ -69,6 +69,20 @@ class TestPairingTruthTable:
             _run_against(kp_a, kp_b, mine={"sub_game_number": 3, "role": "thief"},
                          theirs={"sub_game_number": 5, "role": "police"})
 
+    def test_stale_lower_sub_game_is_ignored_until_current_arrives(self, keypairs):
+        kp_a, kp_b = keypairs
+        inboxes_a = SimpleNamespace(agreements=queue.Queue())
+        for number in (3, 5):
+            greeting = build_agreement_message(make_config("zz-team"), kp_b[1],
+                                               sub_game_number=number, role="police")
+            inboxes_a.agreements.put(_wire(greeting))
+        clock = FakeClock()
+        result = run_handshake(
+            QueueTransport(SimpleNamespace(agreements=queue.Queue())), inboxes_a,
+            make_config("aa-team"), kp_a, clock=clock, sleep=clock.sleep,
+            sub_game_number=5, role="thief")
+        assert result.game_id == "aa-team-vs-zz-team"
+
     def test_same_role_refuses(self, keypairs):
         kp_a, kp_b = keypairs
         with pytest.raises(NegotiationError, match="both declared role='police'"):

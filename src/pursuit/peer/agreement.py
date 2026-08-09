@@ -17,6 +17,13 @@ from pursuit.domain.negotiation import agreement_signature, build_terms
 from pursuit.exceptions import ConfigError
 from pursuit.shared.config import ConfigManager
 
+SCENT_MODEL_SHA256: dict[str, str] = {
+    "reference": "81ebee59640e80eae8ca9ee5f86abd26e7edf5cdbb27d15925cb6ee45ca6ddf4",
+    "multiplicative_book_v1": "934c220d5bf62acaa3297c6c9d723ea954c220260b02292ca17f6d5daef9f4d9",
+}
+WIRE_SHAPE_SHA256 = "229ae6487a418c3fcb6da9be404de2f2533c288ebc228811bff6dedc4164d6f7"
+INFO_MODE_SHA256 = "020947daeeb3f73494af9b04201326791742c7184085456e3517d21981ee1202"
+
 
 def _optional_private(config: ConfigManager, path: str, default: Any) -> Any:
     """Private-config read where absence is legal (runtime ledger state, not a term)."""
@@ -44,6 +51,21 @@ def build_identity(config: ConfigManager, public_pem: bytes) -> dict[str, Any]:
     return identity
 
 
+def build_lock_declarations(config: ConfigManager) -> dict[str, Any]:
+    """Top-level optional negotiate extras from the league-kit locked-model registry."""
+    declarations: dict[str, Any] = {
+        "schema_version": str(config.game("schema_version")),
+        "config_sha256": config.config_sha256(),
+        "wire_shape_sha256": WIRE_SHAPE_SHA256,
+        "info_mode_sha256": INFO_MODE_SHA256,
+        "commit_order": "thief_first",
+    }
+    scent_hash = SCENT_MODEL_SHA256.get(str(config.game("pheromones.dialect")))
+    if scent_hash is not None:
+        declarations["scent_model_sha256"] = scent_hash
+    return declarations
+
+
 def build_agreement_message(
     config: ConfigManager,
     public_pem: bytes,
@@ -66,6 +88,7 @@ def build_agreement_message(
         "signature": agreement_signature(terms, nonce),
         "identity": build_identity(config, public_pem),
     }
+    message.update(build_lock_declarations(config))
     if sub_game_number is not None:
         message["sub_game_number"] = int(sub_game_number)
     if role is not None:
