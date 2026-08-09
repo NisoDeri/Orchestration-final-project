@@ -308,3 +308,12 @@ class TestMultiplicativeBookV1:
         f = m.snapshot()
         assert abs(f["3,2"] - 0.8222) < 1e-12          # exact figure-4 recurrence value
         assert f["1,1"] != round(f["1,1"], 3)          # genuinely unrounded (null rounding)
+
+    def test_requires_pinned_centre_intensity(self) -> None:
+        # the fig-4 kernel is pinned at 0.9; a different E0 would silently distort it -> fail fast
+        with pytest.raises(ConfigError, match="0.9"):
+            make_scent_model({**CFG, "dialect": "multiplicative_book_v1", "emit_intensity": 0.8})
+
+    def test_off_board_deposit_raises(self) -> None:
+        with pytest.raises(ValueError, match="outside the board"):
+            self._model().deposit((99, 99))

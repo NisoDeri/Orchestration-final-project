@@ -17,6 +17,13 @@ clamp-after-add) in :meth:`full_turn` — the pinned evaluation order, bit-for-b
 
 from pursuit.constants import Cell
 from pursuit.domain.scent.base import ScentModel
+from pursuit.domain.scent.params import ScentParams
+from pursuit.exceptions import ConfigError
+
+#: The book figure-4 kernel is pinned verbatim at centre 0.9 (kit center_intensity), so this
+#: dialect is only self-consistent at E0 == 0.9 — clamp-after-add uses E0, and a different E0
+#: would silently distort the pinned kernel and diverge byte-for-byte from a conforming partner.
+_PINNED_CENTRE = 0.9
 
 # book v3.0.0 figure 4 — printed values, verbatim lookup (kit scent_book_v3.json).
 # Indexed [dr + 2][dc + 2] for offset (dr, dc) in [-2, 2]^2 from the emitter cell.
@@ -38,6 +45,14 @@ class MultiplicativeBookV1Scent(ScentModel):
         "tau' = clamp((1 - rho) * tau + kernel_delta, 0, E0), evaluation (1-rho)*tau + delta "
         "then clamp; order decay_then_deposit; no wire rounding"
     )
+
+    def __init__(self, params: ScentParams) -> None:
+        super().__init__(params)
+        if params.emit_intensity != _PINNED_CENTRE:
+            raise ConfigError(
+                "multiplicative_book_v1 pins the book figure-4 kernel at centre "
+                f"{_PINNED_CENTRE} (kit scent_book_v3.json); pheromones.pheromone_center_intensity "
+                f"must be {_PINNED_CENTRE}, got {params.emit_intensity!r}")
 
     def emission_stamp(self, center: Cell) -> dict[Cell, float]:
         """The pinned figure-4 kernel around ``center``, clipped to the board bounds."""
