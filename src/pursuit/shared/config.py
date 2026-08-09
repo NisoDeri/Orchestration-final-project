@@ -110,6 +110,25 @@ class ConfigManager:
         """Dotted-path read from the shared game.json (agreed terms)."""
         return _lookup(self._game, key_path, GAME_JSON)
 
+    def override_game(self, key_path: str, value: Any) -> None:
+        """Patch one agreed-term value in memory — the runtime scent-dialect selector.
+
+        Both peers must still hold byte-identical SIGNED terms, but the scent dialect
+        is agreed OUT-OF-BAND (it is not one of ``build_terms``'s 14 wire keys), so
+        overriding ``pheromones.dialect`` here changes neither the signed terms nor the
+        ``game_uid`` — it only swaps which locked scent law this peer runs. The parent
+        node must already exist (fail-fast, like every other config read).
+        """
+        parts = key_path.split(".")
+        node: Any = self._game
+        for part in parts[:-1]:
+            if not isinstance(node, dict) or part not in node:
+                raise ConfigError(f"cannot override '{key_path}': '{part}' missing in {GAME_JSON}")
+            node = node[part]
+        if not isinstance(node, dict) or parts[-1] not in node:
+            raise ConfigError(f"cannot override '{key_path}': leaf missing in {GAME_JSON}")
+        node[parts[-1]] = value
+
     def private(self, key_path: str) -> Any:
         """Dotted-path read from the private game.toml."""
         return _lookup(self._private, key_path, GAME_TOML)

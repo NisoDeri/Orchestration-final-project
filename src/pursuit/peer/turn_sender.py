@@ -80,8 +80,7 @@ class TurnSender:
         step = self.step_counter.record_valid_move()  # MOVE/HOLD/BARRIER all count (A5)
         own_state.step_number = step  # BARRIER / jailed-HOLD never route through apply_step
         hint = lint_hint(hint, self.hint_max_words)  # BEFORE sealing: wire == audited bytes
-        scent_mine.deposit(own_state.position)  # sender order: deposit -> decay -> snapshot
-        scent_mine.decay()
+        scent_mine.full_turn(own_state.position)  # dialect-pinned cadence, then snapshot
         record = sealer.seal_step(sealed_payload(
             own_state.state_string(), format_move_string(move_type, direction), verdict, hint,
             step, self.role.value,

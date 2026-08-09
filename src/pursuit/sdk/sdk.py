@@ -109,9 +109,17 @@ def run_peer(config_dir: str | Path, role: Role | str, num_games: int | None = N
              fake_opponent: bool = False, transport: Any = None, inboxes: Any = None,
              keypair: tuple[bytes, bytes] | None = None, rng: random.Random | None = None,
              logs_dir: str | Path | None = None, sysinfo: dict[str, Any] | None = None,
-             github_commit: str | None = None, observer: Any = None) -> dict[str, Any]:
-    """Load + validate config, build the stack ONCE, run the series, return its summary."""
+             github_commit: str | None = None, observer: Any = None,
+             alternate: bool = True, scent_dialect: str | None = None) -> dict[str, Any]:
+    """Load + validate config, build the stack ONCE, run the series, return its summary.
+
+    ``scent_dialect`` (optional) overrides ``pheromones.dialect`` at runtime — the
+    per-opponent scent-model selector (``reference`` / ``book`` / ``multiplicative_book_v1``).
+    It is agreed out-of-band, not a wire term, so it never changes the signed terms or uid.
+    """
     config = ConfigManager.load(config_dir)
+    if scent_dialect is not None:
+        config.override_game("pheromones.dialect", scent_dialect)
     config.validate_agreement()  # fail-fast on any missing agreed term (brief §10)
     my_role = Role(role)
     games = int(num_games if num_games is not None
@@ -135,7 +143,7 @@ def run_peer(config_dir: str | Path, role: Role | str, num_games: int | None = N
         summary = run_series(
             config, my_role, games, transport, inboxes, keypair=keypair,
             brain_factory=lambda r: resolve_brain(config, r, rng), sysinfo=sysinfo,
-            github_commit=commit, watchdog=watchdog, observer=observer,
+            github_commit=commit, watchdog=watchdog, observer=observer, alternate=alternate,
             logs_dir=logs_dir if logs_dir is not None
             else _optional(config.private, "paths.logs_dir", "logs"))
     finally:

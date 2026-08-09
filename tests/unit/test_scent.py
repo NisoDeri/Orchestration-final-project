@@ -256,7 +256,7 @@ class TestWorkedExample:
 
     def test_same_operations_different_grids_proves_the_lock_matters(self) -> None:
         book, ref = make(BookScent).worked_example(), make(ReferenceScent).worked_example()
-        assert book["operations"] == ref["operations"] == ["deposit((3, 3))", "decay()"]
+        assert book["operations"] == ref["operations"] == ["full_turn((3, 3))"]
         assert book["grid"] != ref["grid"]
         assert book["grid"]["3,3"] == 0.81  # 0.9 * (1 - 0.1)
         assert ref["grid"]["3,3"] == 0.8  # 0.9 - 0.1
@@ -269,3 +269,42 @@ class TestWorkedExample:
 
     def test_example_locks_the_rounding_contract(self) -> None:
         assert "round(v, 3)" in make(ReferenceScent).worked_example()["rounding"]
+
+
+class TestMultiplicativeBookV1:
+    """multiplicative_book_v1 — byte-exact vs the kit's pinned book figure-4 vectors
+    (github.com/Imreec/copthief-league-protocol vectors/scent_book_v3.json, PROMOTED)."""
+
+    def _model(self) -> ScentModel:
+        return make_scent_model({**CFG, "dialect": "multiplicative_book_v1"})
+
+    def test_registered_dialect(self) -> None:
+        assert self._model().dialect == "multiplicative_book_v1"
+
+    def test_emit_is_the_verbatim_figure4_kernel(self) -> None:
+        m = self._model()
+        m.deposit((3, 3))  # kernel on an empty field == raw figure-4 stamp
+        f = m.snapshot()
+        assert f["3,3"] == 0.9 and f["3,2"] == 0.62 and f["3,4"] == 0.62
+        assert f["3,1"] == 0.2 and f["2,2"] == 0.42 and f["1,1"] == 0.04
+        assert len(f) == 25
+
+    def test_full_turn_is_decay_then_deposit_clamped(self) -> None:
+        # multiplicative decay: (1 - rho) * tau, then clamp-after-add at E0=0.9
+        c = self._model()
+        c._grid = {(3, 3): 0.9}
+        c.full_turn((3, 4))          # 0.9 -> 0.81 (decay), +0.62 orthogonal -> clamp 0.9
+        assert c._grid[(3, 3)] == 0.9
+        # chain recurrence tau' = 0.9*tau + delta from empty: 0.62 -> 0.758 -> 0.8822
+        tau = 0.0
+        for delta, want in ((0.62, 0.62), (0.2, 0.758), (0.2, 0.8822)):
+            tau = 0.9 * tau + delta
+            assert abs(tau - want) < 1e-12
+
+    def test_wire_snapshot_is_unrounded(self) -> None:
+        m = self._model()
+        for center in ((3, 3), (3, 4), (2, 4)):  # kit field_walk, three moving turns
+            m.full_turn(center)
+        f = m.snapshot()
+        assert abs(f["3,2"] - 0.8222) < 1e-12          # exact figure-4 recurrence value
+        assert f["1,1"] != round(f["1,1"], 3)          # genuinely unrounded (null rounding)

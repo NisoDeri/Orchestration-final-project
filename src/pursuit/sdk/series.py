@@ -99,8 +99,15 @@ def counted_games(config: Any) -> int:
 def run_series(config: Any, role: Role, num_games: int, transport: Any, inboxes: Any, *,
                keypair: tuple[bytes, bytes], brain_factory: Any, sysinfo: dict[str, Any],
                github_commit: str, watchdog: Any = None, observer: Any = None,
-               logs_dir: str | Path | None = None) -> dict[str, Any]:
-    """Play ``num_games`` sub-games; aggregate scores + the tie rule; emit logs + email."""
+               logs_dir: str | Path | None = None, alternate: bool = True) -> dict[str, Any]:
+    """Play ``num_games`` sub-games; aggregate scores + the tie rule; emit logs + email.
+
+    ``alternate`` (default True) is the reference role-swap: odd sub-games in my config role,
+    even in the opposite. Set False for the two-endpoint league topology, where each peer
+    exposes a FIXED-role MCP endpoint and plays every sub-game in that one role (my config
+    role) — its opposite-role sub-games are played by my other endpoint against the peer's
+    complementary endpoint. A single sub-game (``num_games == 1``) is my config role either way.
+    """
     my_gid = str(config.private("game.group_id"))
     table = ScoreTable(config.game("scoring"))
     rows: list[dict[str, int]] = []
@@ -111,7 +118,8 @@ def run_series(config: Any, role: Role, num_games: int, transport: Any, inboxes:
     for number in range(1, num_games + 1):
         inboxes.turns.drain()  # stale-turn hygiene between sub-games (INTEROP §2.4);
         inboxes.audits.drain()  # safe: fresh turns only follow the new handshake
-        role_now = role if number % 2 == 1 else role.opponent  # odd = my config role
+        role_now = role if (not alternate or number % 2 == 1) else role.opponent  # odd = my
+        # config role; a fixed-role endpoint (alternate=False) plays every sub-game in it
         runtime = PeerRuntime(role_now, config, transport, inboxes,
                               brain_factory(role_now), belief_for(config, role_now, profiler.prior),
                               keypair, sysinfo=sysinfo, github_commit=github_commit,

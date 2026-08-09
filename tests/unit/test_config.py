@@ -147,3 +147,26 @@ class TestNamingAndHash:
 
         _clone_config(tmp_path, mutate=bump)
         assert ConfigManager.load(tmp_path).config_sha256() != cfg.config_sha256()
+
+
+class TestScentDialectOverride:
+    """override_game — the per-opponent runtime scent selector (agreed out-of-band)."""
+
+    def test_swaps_the_scent_dialect(self, tmp_path):
+        loaded = ConfigManager.load(_clone_config(tmp_path))
+        assert loaded.game("pheromones.dialect") == "reference"  # shipped default (our strength)
+        loaded.override_game("pheromones.dialect", "multiplicative_book_v1")
+        assert loaded.game("pheromones.dialect") == "multiplicative_book_v1"
+
+    def test_override_leaves_wire_terms_and_uid_untouched(self, tmp_path):
+        from pursuit.domain.negotiation import build_terms
+
+        loaded = ConfigManager.load(_clone_config(tmp_path))
+        before_terms, before_sha = build_terms(loaded), loaded.config_sha256()
+        loaded.override_game("pheromones.dialect", "multiplicative_book_v1")
+        assert build_terms(loaded) == before_terms     # dialect is not one of the 14 wire keys
+        assert loaded.config_sha256() == before_sha     # so the signed-terms hash / uid is stable
+
+    def test_override_missing_leaf_raises(self, cfg):
+        with pytest.raises(ConfigError, match="cannot override"):
+            cfg.override_game("pheromones.nonexistent", "book")
