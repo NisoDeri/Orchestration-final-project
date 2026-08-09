@@ -3,9 +3,9 @@ artifacts (book Appendix F). Kept separate from :mod:`pursuit.report.artifacts` 
 builder module stays well under the 150-line ceiling; both are pure (no I/O).
 
 The self-documenting ``_schema`` strings are copied from the reference templates so
-emitted files stay as explanatory as the reference examples, while the filename and
-``links`` helpers encode OUR one-config-per-series naming (``config_<game_id>.json``)
-rather than the reference's per-sub-game config name.
+emitted files stay as explanatory as the reference examples. Per App. F table 20 the
+match-level files (declaration, result) are named ``<kind>_<game_id>.json`` while the
+per-sub-game files (config, log) carry a zero-padded ``_g<NN>`` suffix.
 """
 
 from __future__ import annotations
@@ -44,8 +44,8 @@ SCHEMA_RESULT = (
 LINKS_REMARK = (
     "These are logical roles, NOT fixed filenames. Each actual file name is derived from "
     "the game_id so files from different games are never mixed. Match-level files "
-    "(declaration, config, result) are named <role>_<game_id>.json; per-sub-game log "
-    "files are named log_<game_id>_g<NN>.json where <NN> is the sub_game_number."
+    "(declaration, result) are named <role>_<game_id>.json; per-sub-game files (config, "
+    "log) are named <role>_<game_id>_g<NN>.json where <NN> is the sub_game_number."
 )
 
 
@@ -53,8 +53,8 @@ def declaration_filename(game_id: str) -> str:
     return f"declaration_{game_id}.json"
 
 
-def config_filename(game_id: str) -> str:
-    return f"config_{game_id}.json"
+def config_filename(game_id: str, sub_game_number: int) -> str:
+    return f"config_{game_id}_g{sub_game_number:02d}.json"
 
 
 def log_filename(game_id: str, sub_game_number: int) -> str:
@@ -66,12 +66,12 @@ def result_filename(game_id: str) -> str:
 
 
 def links(game_id: str) -> dict[str, str]:
-    """Shared links block: logical role -> filename. The log keeps the literal ``g<NN>``
-    placeholder because ``<NN>`` (sub_game_number) varies from one log file to the next."""
+    """Shared links block: logical role -> filename. Config and log keep the literal
+    ``g<NN>`` placeholder because ``<NN>`` (sub_game_number) varies per sub-game file."""
     return {
         "_remark": LINKS_REMARK,
         "declaration": declaration_filename(game_id),
-        "config": config_filename(game_id),
+        "config": f"config_{game_id}_g<NN>.json",
         "log": f"log_{game_id}_g<NN>.json",
         "result": result_filename(game_id),
     }
@@ -121,7 +121,7 @@ def sub_result_row(sub: Mapping[str, Any], game_id: str,
         "winner_group": winner_group(sub),
         "tie": result == "tie",
         "github_commit": dict(sub.get("github_commit", {})),
-        "tokens": dict(sub.get("tokens", {})),
+        "tokens": {gid: (sub.get("tokens") or {}).get(gid, 0) for gid in group_ids},
         "score": dict(sub.get("score", {})),
         "log_files": {gid: log_filename(game_id, sub.get("sub_game_number", 0))
                       for gid in group_ids},

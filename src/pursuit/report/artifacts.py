@@ -1,21 +1,18 @@
 """Pure builders for the four standardized game JSON artifacts (book Appendix F):
-declaration, config, log, result — dicts in, dicts out, no I/O except the optional
-:func:`write_artifacts` writer. Wired from the report stage over a completed series.
-
-These fix the reference's known emission bugs by CONSUMING real data instead of
-placeholders: the real ``github_commit`` (never the literal ``"unknown"``), every repo
-link, real per-group token totals summed from the sub-games, and a mutual-agreement
-SHA that is the agreed ``config_sha256`` (byte-identical config lock) rather than an
-ad-hoc digest. Everything is read from the passed dicts — no hardcoded game parameters.
+declaration, config, log, result — dicts in, dicts out (the writer lives in
+:mod:`pursuit.report.artifacts_io`, re-exported here). Real data replaces the reference
+placeholders (true ``github_commit``, repo links, summed per-group tokens, agreed
+``config_sha256``); the App. F table-20 join keys (game_id, game_uid, groups,
+num_sub_games, sub_game_number) ride every kind so the four files join by one game_uid.
+Nothing is hardcoded — all read from the passed dicts.
 """
 
 from __future__ import annotations
 
-import json
 from collections.abc import Mapping, Sequence
-from pathlib import Path
 from typing import Any
 
+from pursuit.report.artifacts_io import write_artifacts
 from pursuit.report.consensus import settlement
 from pursuit.report.schema import (
     DEFAULT_TIMEZONE,
@@ -24,24 +21,37 @@ from pursuit.report.schema import (
     SCHEMA_LOG,
     SCHEMA_RESULT,
     SCHEMA_VERSION,
-    config_filename,
-    declaration_filename,
     hardware_spec,
     links,
-    log_filename,
-    result_filename,
     sub_result_row,
 )
+
+__all__ = [
+    "build_config_artifact",
+    "build_declaration",
+    "build_log_artifact",
+    "build_result_artifact",
+    "write_artifacts",
+]
 
 
 def build_declaration(sysinfo: Mapping[str, Any], group_id: str,
                       members: Sequence[str], github_commit: str, counted_games: int,
-                      public_key_b64: str, repos: Mapping[str, str]) -> dict[str, Any]:
-    """Template 1: static pre-game declaration for the whole series (our group block)."""
+                      public_key_b64: str, repos: Mapping[str, str],
+                      opponent_group_id: str = "", game_id: str = "",
+                      game_uid: str = "", num_sub_games: int = 0) -> dict[str, Any]:
+    """Template 1: static pre-game declaration for the whole series (both group blocks)."""
     return {
         "_schema": SCHEMA_DECLARATION,
         "schema_version": SCHEMA_VERSION,
         "declaration_type": "pre_game_declaration",
+        "game_id": game_id,
+        "game_uid": game_uid,
+        "num_sub_games": num_sub_games,
+        "groups": {"group_1": {"group_id": group_id, "members": list(members),
+                               "repos": dict(repos)},
+                   "group_2": {"group_id": opponent_group_id}},
+        "links": links(game_id),
         "group_id": group_id,
         "members": list(members),
         "github_commit": github_commit,
@@ -54,11 +64,16 @@ def build_declaration(sysinfo: Mapping[str, Any], group_id: str,
     }
 
 
-def build_config_artifact(config_sha256: str, terms: Mapping[str, Any]) -> dict[str, Any]:
-    """Template 2: the agreed, byte-identical config plus its canonical sha256 lock."""
+def build_config_artifact(config_sha256: str, terms: Mapping[str, Any], game_id: str = "",
+                          game_uid: str = "", sub_game_number: int = 1) -> dict[str, Any]:
+    """Template 2: one PER-SUB-GAME agreed config plus its canonical sha256 lock."""
     return {
         "_schema": SCHEMA_CONFIG,
         **dict(terms),
+        "game_id": game_id,
+        "game_uid": game_uid,
+        "sub_game_number": sub_game_number,
+        "links": links(game_id),
         "schema_version": SCHEMA_VERSION,
         "config_sha256": config_sha256,
     }
@@ -123,26 +138,3 @@ def build_result_artifact(series_summary: Mapping[str, Any], group_id: str,
     # kit §6 CORE: the cross-team settlement consensus (spaced sig, sign-then-insert).
     artifact["settlement"] = settlement(artifact)
     return artifact
-
-
-def _dump(path: Path, data: Mapping[str, Any]) -> str:
-    path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
-    return str(path)
-
-
-def write_artifacts(out_dir: str | Path, declaration: Mapping[str, Any],
-                    config_art: Mapping[str, Any], result: Mapping[str, Any],
-                    logs: Sequence[Mapping[str, Any]]) -> list[str]:
-    """Write all four artifact kinds under ``out_dir``; return the written paths."""
-    out = Path(out_dir)
-    out.mkdir(parents=True, exist_ok=True)
-    game_id = str(result.get("game_id") or config_art.get("game_id", ""))
-    paths = [
-        _dump(out / declaration_filename(game_id), declaration),
-        _dump(out / config_filename(game_id), config_art),
-        _dump(out / result_filename(game_id), result),
-    ]
-    for log in logs:
-        number = int(log.get("summary", {}).get("sub_game_number", 0) or 0)
-        paths.append(_dump(out / log_filename(game_id, number), log))
-    return paths

@@ -1,9 +1,6 @@
-"""Log/document emission helpers for the series driver (arch §sdk).
-
-The MINIMAL writer surface pulled out of :mod:`pursuit.sdk.series`: the report-row
-shape (:func:`sub_row`), the replayable sealed per-sub-game log document
-(:func:`log_document`) and the JSON sink (:func:`write_json`). Kept pure — no game
-parameters are hardcoded here; everything is derived from the passed ``outcome``.
+"""Log/document emission for the series driver (arch §sdk): the report-row :func:`sub_row`,
+the replayable :func:`log_document`, the :func:`write_json` sink and :func:`emit_artifacts`.
+No game params hardcoded — all derived from the passed ``outcome``/``config``.
 """
 
 from __future__ import annotations
@@ -18,13 +15,10 @@ from pursuit.strategy.profiler import OpponentProfiler
 
 
 class LieProfiler:
-    """E2 cross-sub-game lie-profiler bridge — LOW-RISK, gated, and non-fatal by design.
-
-    Off unless private ``strategy.profile_opponent`` is truthy; ``None`` on ANY build error.
-    :meth:`observe` folds each finished sub-game's revealed opponent records (read defensively
-    from ``outcome.audit['their_records']``) and exposes :attr:`prior` — the Beta-posterior r_0
-    the NEXT sub-game's belief seeds via :meth:`belief_cfg`. Every step is wrapped so a bad
-    transcript can never crash the series (STRATEGY §5.5, CREATIVITY-DESIGN E2).
+    """E2 cross-sub-game lie-profiler bridge — gated, non-fatal. Off unless private
+    ``strategy.profile_opponent`` is truthy (``None`` on any build error). :meth:`observe`
+    folds each sub-game's revealed opponent records into :attr:`prior` — the Beta r_0 the
+    next sub-game seeds via :meth:`belief_cfg`; wrapped so it never crashes.
     """
 
     def __init__(self, config: Any) -> None:
@@ -104,10 +98,7 @@ def _opponent(summary: dict[str, Any], my_gid: str) -> str:
 def emit_artifacts(config: Any, summary: dict[str, Any], logs: list[dict[str, Any]],
                    sysinfo: dict[str, Any], github_commit: str,
                    keypair: tuple[bytes, bytes], out_dir: Path) -> list[str]:
-    """Build + write the FOUR standardized artifacts (declaration/config/log/result).
-
-    Best-effort and non-fatal: a reporting error never aborts a finished series.
-    """
+    """Build + write the FOUR artifacts; best-effort, never aborts a finished series."""
     import base64
 
     from pursuit.domain.negotiation import build_terms
@@ -120,18 +111,24 @@ def emit_artifacts(config: Any, summary: dict[str, Any], logs: list[dict[str, An
     )
     try:
         my_gid = str(summary.get("group_id", ""))
-        counted = 0
         try:
             counted = int(config.private("game.counted_games_so_far"))
         except Exception:  # noqa: BLE001
             counted = 0
+        opp = _opponent(summary, my_gid)
+        result = build_result_artifact(summary, my_gid, opp)
+        game_id, game_uid = result["game_id"], result["game_uid"]
+        subs = list(summary.get("sub_games", []))
         declaration = build_declaration(
             sysinfo, my_gid, config.private("game.members"), github_commit, counted,
-            base64.b64encode(keypair[1]).decode("ascii"), config.private("game.repos"))
-        config_art = build_config_artifact(config.config_sha256(), build_terms(config))
-        result = build_result_artifact(summary, my_gid, _opponent(summary, my_gid))
+            base64.b64encode(keypair[1]).decode("ascii"), config.private("game.repos"),
+            opp, game_id, game_uid, len(subs))
+        sha, terms = config.config_sha256(), build_terms(config)
+        configs = [build_config_artifact(sha, terms, game_id, game_uid,
+                                         int(sub.get("sub_game_number", i + 1)))
+                   for i, sub in enumerate(subs)]
         log_arts = [build_log_artifact(doc) for doc in logs]
-        paths = write_artifacts(out_dir, declaration, config_art, result, log_arts)
+        paths = write_artifacts(out_dir, declaration, configs, result, log_arts)
         maybe_email(config, summary, result)
         return paths
     except Exception:  # noqa: BLE001 — reporting must never crash a completed series

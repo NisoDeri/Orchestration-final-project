@@ -53,7 +53,8 @@ def series_summary() -> dict:
 
 def test_declaration_required_keys(sysinfo: dict) -> None:
     decl = build_declaration(sysinfo, "nis-yar1", ["id-1", "id-2"], "deadbeef", 3,
-                             "PUBKEY==", {"cop": "https://gh/x", "thief": "https://gh/x"})
+                             "PUBKEY==", {"cop": "https://gh/x", "thief": "https://gh/x"},
+                             "seg-team", GAME_ID, "uid-0", 2)
     assert decl["schema_version"] == "1.1"
     assert decl["github_commit"] == "deadbeef"
     assert decl["github_commit"] != "unknown"
@@ -61,15 +62,22 @@ def test_declaration_required_keys(sysinfo: dict) -> None:
     assert decl["repos"]["cop"] == "https://gh/x"
     assert decl["hardware_spec"]["gpu_model"] == "RTX 3500 Ada"
     assert decl["public_key_b64"] == "PUBKEY=="
+    # App. F table-20 join keys: both group ids named, one uid, series length
+    assert decl["game_id"] == GAME_ID and decl["game_uid"] == "uid-0"
+    assert decl["num_sub_games"] == 2
+    assert [b["group_id"] for b in decl["groups"].values()] == ["nis-yar1", "seg-team"]
 
 
 def test_config_artifact_lock_and_terms() -> None:
-    terms = {"game_id": GAME_ID, "scoring": {"capture_cop": 20}, "note": HEBREW}
-    art = build_config_artifact("SHA256LOCK", terms)
+    terms = {"scoring": {"capture_cop": 20}, "note": HEBREW}
+    art = build_config_artifact("SHA256LOCK", terms, GAME_ID, "uid-0", 3)
     assert art["schema_version"] == "1.1"
     assert art["config_sha256"] == "SHA256LOCK"
     assert art["scoring"]["capture_cop"] == 20
     assert art["note"] == HEBREW
+    # per-sub-game join keys the checker (App. F table 20) requires on config
+    assert art["game_id"] == GAME_ID and art["game_uid"] == "uid-0"
+    assert art["sub_game_number"] == 3
 
 
 def test_result_totals_match(series_summary: dict) -> None:
@@ -118,10 +126,10 @@ def test_write_artifacts_filenames(tmp_path, sysinfo: dict, series_summary: dict
     result = build_result_artifact(series_summary, "nis-yar1", "seg-team")
     logs = [build_log_artifact({"summary": {"sub_game_number": 1, "game_id": GAME_ID},
                                 "records": []})]
-    paths = write_artifacts(tmp_path, decl, config_art, result, logs)
+    paths = write_artifacts(tmp_path, decl, [config_art], result, logs)
     names = {p.rsplit("\\", 1)[-1].rsplit("/", 1)[-1] for p in paths}
     assert names == {
-        f"declaration_{GAME_ID}.json", f"config_{GAME_ID}.json",
+        f"declaration_{GAME_ID}.json", f"config_{GAME_ID}_g01.json",
         f"result_{GAME_ID}.json", f"log_{GAME_ID}_g01.json",
     }
 

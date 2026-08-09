@@ -1,16 +1,10 @@
 """Symmetric no-initiator handshake (INTEROP §4) — the game clock starts here.
 
-Both peers concurrently: (1) SEND their signed agreement (built by peer/agreement.py),
-retrying every ``network.retry_interval_seconds`` until
-``network.connect_timeout_seconds``; (2) RECEIVE the opponent's from the local
-agreements inbox under the same deadline; (3) VERIFY terms exact-equality then the
-agreement signature — refusal, never bargaining; (4) DERIVE ``game_id``/``game_uid``
-independently, zero extra round-trips. D14/rule-37 payloads (Ed25519 pubkey,
-counted-games count) ride inside the unsigned identity block and come back in the
-:class:`Handshake` result.
-
-Transport/inboxes/clock are injected — unit tests drive this with in-memory queues and
-a fake clock (no sockets, no sleeps).
+Both peers concurrently SEND their signed agreement (built by peer/agreement.py) retrying
+until ``network.connect_timeout_seconds``, RECEIVE the opponent's under the same deadline,
+VERIFY terms exact-equality, the agreement signature, then the §7.2 pairing declaration
+(refusal, never bargaining), and DERIVE ``game_id``/``game_uid`` independently. D14/rule-37
+payloads ride in the unsigned identity block; clock/transport are injected for in-memory tests.
 """
 
 from __future__ import annotations
@@ -23,7 +17,7 @@ from typing import Any, Protocol
 
 from pursuit.domain.game_ids import derive_game_ids
 from pursuit.domain.negotiation import verify_agreement_signature, verify_terms
-from pursuit.exceptions import CryptoError, DeadlineError, TransportError
+from pursuit.exceptions import CryptoError, DeadlineError, NegotiationError, TransportError
 from pursuit.peer.agreement import build_agreement_message
 from pursuit.shared.config import ConfigManager
 
@@ -65,6 +59,27 @@ def _send_with_retry(
             sleep(retry)
 
 
+def _is_int(value: Any) -> bool:
+    """A comparable sub-game index is a plain int; a bool or ``"3"`` is silence, not a value."""
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
+def _assert_pairing(my_num: Any, my_role: Any, theirs: dict[str, Any]) -> None:
+    """§7.2 pairing guard — refuse ONLY on a two-sided contradiction, never on silence.
+
+    Both declare comparable ``sub_game_number`` that DIFFER -> refuse; both declare the same
+    ``role`` (same side) -> refuse; otherwise (complementary, or EITHER side omits/mistypes a
+    field) -> play. A stock reference peer declares nothing, so silence must always play.
+    """
+    their_num = theirs.get("sub_game_number")
+    if _is_int(my_num) and _is_int(their_num) and my_num != their_num:
+        raise NegotiationError(
+            f"pairing refused: sub_game_number ours={my_num} theirs={their_num} (§7.2)")
+    their_role = theirs.get("role")
+    if isinstance(my_role, str) and isinstance(their_role, str) and my_role == their_role:
+        raise NegotiationError(f"pairing refused: both declared role={my_role!r} (§7.2)")
+
+
 def _receive_agreement(inboxes: Inboxes, deadline: float, poll: float, clock, sleep) -> dict:
     while True:
         try:
@@ -85,19 +100,20 @@ def run_handshake(
     config: ConfigManager,
     keypair: tuple[bytes, bytes],
     *,
+    sub_game_number: int | None = None,
+    role: str | None = None,
     clock: Callable[[], float] = time.monotonic,
     sleep: Callable[[float], None] = time.sleep,
 ) -> Handshake:
     """Full symmetric handshake; returns the agreed :class:`Handshake` or refuses.
 
-    Refusal matrix (INTEROP §4): terms mismatch -> NegotiationError (via
-    ``verify_terms``, names the first diverging key); bad signature -> CryptoError;
-    nothing delivered/received before ``network.connect_timeout_seconds`` ->
-    Transport/Deadline error. Duplicate deliveries are tolerated (retries mean the
-    queue may hold copies; the first message wins).
+    Refusal matrix (INTEROP §4): terms mismatch or §7.2 pairing contradiction ->
+    NegotiationError; bad signature -> CryptoError; nothing delivered/received before
+    ``network.connect_timeout_seconds`` -> Transport/Deadline error. Duplicate deliveries
+    are tolerated (retries may leave copies in the queue; the first message wins).
     """
     _private_pem, public_pem = keypair
-    mine = build_agreement_message(config, public_pem)
+    mine = build_agreement_message(config, public_pem, sub_game_number=sub_game_number, role=role)
     retry = float(config.private("network.retry_interval_seconds"))
     poll = float(config.private("network.poll_interval_seconds"))
     deadline = clock() + float(config.private("network.connect_timeout_seconds"))
@@ -114,6 +130,7 @@ def run_handshake(
         their_terms, their_nonce, their_signature
     ):
         raise CryptoError("agreement signature mismatch — refusing to play (INTEROP §4.3b)")
+    _assert_pairing(sub_game_number, role, theirs)  # §7.2 pairing declaration guard
 
     identity = theirs.get("identity")
     identity = identity if isinstance(identity, dict) else {}

@@ -44,13 +44,30 @@ def build_identity(config: ConfigManager, public_pem: bytes) -> dict[str, Any]:
     return identity
 
 
-def build_agreement_message(config: ConfigManager, public_pem: bytes) -> dict[str, Any]:
-    """One signed ``negotiate`` body: fresh nonce, §3.3 signature, unsigned identity."""
+def build_agreement_message(
+    config: ConfigManager,
+    public_pem: bytes,
+    *,
+    sub_game_number: int | None = None,
+    role: str | None = None,
+) -> dict[str, Any]:
+    """One signed ``negotiate`` body: fresh nonce, §3.3 signature, unsigned identity.
+
+    ``sub_game_number``/``role`` are the §7.2 pairing declaration — they ride TOP-LEVEL,
+    beside (never inside) ``terms`` so they cannot disturb the signature. Either is only
+    written when supplied; ``None`` means "declare nothing", exactly what a stock reference
+    peer does (an omission never triggers a refusal — INTEROP §7.2).
+    """
     terms = build_terms(config)
     nonce = generate_nonce()
-    return {
+    message: dict[str, Any] = {
         "terms": terms,
         "nonce": nonce,
         "signature": agreement_signature(terms, nonce),
         "identity": build_identity(config, public_pem),
     }
+    if sub_game_number is not None:
+        message["sub_game_number"] = int(sub_game_number)
+    if role is not None:
+        message["role"] = str(role)
+    return message
