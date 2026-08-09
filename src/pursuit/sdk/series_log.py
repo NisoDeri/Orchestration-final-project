@@ -9,7 +9,8 @@ import json
 from pathlib import Path
 from typing import Any
 
-from pursuit.constants import Role
+from pursuit.constants import GameResult, Role
+from pursuit.domain.scoring import ScoreTable
 from pursuit.peer.audit import SubgameOutcome
 from pursuit.strategy.profiler import OpponentProfiler
 
@@ -95,6 +96,75 @@ def _opponent(summary: dict[str, Any], my_gid: str) -> str:
     return next((g for g in summary.get("totals", {}) if g != my_gid), "opponent")
 
 
+def _log_number(doc: dict[str, Any]) -> int:
+    return int(doc.get("summary", {}).get("sub_game_number", 0) or 0)
+
+
+def _read_sibling_logs(out_dir: Path, game_id: str) -> list[dict[str, Any]]:
+    docs: list[dict[str, Any]] = []
+    for path in out_dir.glob(f"log_{game_id}_g*.json"):
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            if isinstance(data, dict):
+                docs.append(data)
+        except Exception:  # noqa: BLE001 - a corrupt side artifact must not stop reporting
+            pass
+    return docs
+
+
+def _role(value: Any) -> Role | None:
+    try:
+        return Role(value)
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _row_from_log(config: Any, doc: dict[str, Any], my_gid: str, opp_gid: str) -> dict[str, Any]:
+    summary = dict(doc.get("summary", {}))
+    role = _role(summary.get("role")) or Role.POLICE
+    opponent = str(summary.get("opponent_group_id") or opp_gid)
+    winner = _role(summary.get("winner_role"))
+    result = summary.get("result")
+    try:
+        game_result = GameResult(result)
+    except Exception:  # noqa: BLE001
+        game_result = str(result or GameResult.TECHNICAL_LOSS.value)
+    by_role = ScoreTable(config.game("scoring")).score_subgame(game_result, winner)
+    return {
+        "sub_game_number": _log_number(doc),
+        "roles": {my_gid: role.value, opponent: role.opponent.value},
+        "result": str(result or GameResult.TECHNICAL_LOSS.value),
+        "winner_role": None if winner is None else winner.value,
+        "score": {my_gid: by_role[role], opponent: by_role[role.opponent]},
+        "steps": int(summary.get("steps", 0) or 0),
+        "game_uid": str(summary.get("game_uid", "")),
+        "audit": {
+            "passed": bool((summary.get("audit") or {}).get("passed", False)),
+            "forgery": bool((summary.get("audit") or {}).get("forgery", False)),
+            "opponent_received": bool((summary.get("audit") or {}).get("opponent_received", False)),
+            "failed_steps": list((summary.get("audit") or {}).get("failed_steps", [])),
+        },
+    }
+
+
+def _merged_summary(config: Any, summary: dict[str, Any], logs: list[dict[str, Any]],
+                    out_dir: Path, my_gid: str, opp_gid: str) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    game_id = str(summary.get("game_id", ""))
+    by_number = {_log_number(doc): doc for doc in _read_sibling_logs(out_dir, game_id)}
+    by_number.update({_log_number(doc): doc for doc in logs})
+    merged_logs = [by_number[n] for n in sorted(by_number) if n > 0]
+    if len(merged_logs) <= len(logs):
+        return summary, logs
+    rows = [_row_from_log(config, doc, my_gid, opp_gid) for doc in merged_logs]
+    scores = [dict(row.get("score", {})) for row in rows]
+    return {
+        **summary,
+        "num_sub_games": len(rows),
+        "sub_games": rows,
+        **ScoreTable(config.game("scoring")).series_totals(scores),
+    }, merged_logs
+
+
 def emit_artifacts(config: Any, summary: dict[str, Any], logs: list[dict[str, Any]],
                    sysinfo: dict[str, Any], github_commit: str,
                    keypair: tuple[bytes, bytes], out_dir: Path) -> list[str]:
@@ -116,6 +186,7 @@ def emit_artifacts(config: Any, summary: dict[str, Any], logs: list[dict[str, An
         except Exception:  # noqa: BLE001
             counted = 0
         opp = _opponent(summary, my_gid)
+        summary, logs = _merged_summary(config, summary, logs, out_dir, my_gid, opp)
         result = build_result_artifact(summary, my_gid, opp)
         game_id, game_uid = result["game_id"], result["game_uid"]
         subs = list(summary.get("sub_games", []))

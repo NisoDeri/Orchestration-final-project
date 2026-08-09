@@ -18,6 +18,7 @@ from pursuit.peer.agreement import build_agreement_message
 from pursuit.peer.inboxes import PeerInboxes
 from pursuit.sdk import run_lab, run_peer
 from pursuit.sdk.series import ScentBelief, logical_subgame_numbers
+from pursuit.sdk.series_log import emit_artifacts, log_document, write_json
 from pursuit.shared.config import ConfigManager
 from pursuit.constants import Role
 
@@ -146,6 +147,41 @@ class TestFakeOpponentSeries:
         cfg = ConfigManager.load(write_config(tmp_path / "cfg", num_games=6))
         assert logical_subgame_numbers(cfg, Role.THIEF, 3, alternate=False) == [1, 3, 5]
         assert logical_subgame_numbers(cfg, Role.POLICE, 3, alternate=False) == [2, 4, 6]
+
+    def test_fixed_role_artifact_emit_merges_sibling_endpoint_logs(self, tmp_path):
+        cfg = ConfigManager.load(write_config(tmp_path / "cfg", num_games=6))
+        out_dir = tmp_path / "logs" / GID
+        keypair = generate_keypair()
+
+        class Outcome:
+            result = type("R", (), {"value": "capture"})()
+            winner = Role.POLICE
+            scores = {Role.POLICE: 20, Role.THIEF: 5}
+            audit = {"passed": True, "forgery": False, "opponent_received": True,
+                     "failed_steps": []}
+            records = [{"payload": {"step": 0, "sub_game_number": 1}, "nonce": "n",
+                        "commit": "c"}]
+            steps = 8
+            game_id = "anrbj666-vs-nis-yar1"
+            game_uid = "uid"
+            opponent_group = "anrbj666"
+
+        first = log_document(1, Role.THIEF, GID, Outcome())
+        write_json(out_dir / "log_anrbj666-vs-nis-yar1_g01.json", first)
+        second = log_document(3, Role.THIEF, GID, Outcome())
+        summary = {"game_id": "anrbj666-vs-nis-yar1", "group_id": GID,
+                   "num_sub_games": 1, "config_sha256": "abc123",
+                   "sub_games": [], "totals": {GID: 0, "anrbj666": 0},
+                   "tie": True, "winner": None}
+
+        emit_artifacts(cfg, summary, [second], SPEC, "abc1234", keypair, out_dir)
+
+        result = json.loads((out_dir / "result_anrbj666-vs-nis-yar1.json")
+                            .read_text(encoding="utf-8"))
+        assert [row["sub_game_number"] for row in result["sub_games"]] == [1, 3]
+        assert result["num_sub_games"] == 2
+        assert (out_dir / "config_anrbj666-vs-nis-yar1_g01.json").exists()
+        assert (out_dir / "config_anrbj666-vs-nis-yar1_g03.json").exists()
 
 
 class TestTimeoutPath:
