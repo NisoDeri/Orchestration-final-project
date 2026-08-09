@@ -144,6 +144,34 @@ Capture and commit before closing out the pairing:
 
 ---
 
+## 5 — SCENT MODEL SELECTOR + TWO-ENDPOINT TOPOLOGY
+
+The scent model (term 14) is **runtime-selectable per opponent — no JSON edit**:
+```
+python -m pursuit peer --role thief --config-dir config/thief \
+    --scent-dialect reference               # subtractive_chebyshev_v1 (kit CORE, OUR STRENGTH)
+# or --scent-dialect multiplicative_book_v1  # book/Gaussian (e.g. anrbj666 / Alon)
+```
+- Both are **byte-exact vs the league kit vectors** (`verify_vectors.py` + our scent tests). The
+  dialect is agreed **out-of-band** — NOT one of the 14 wire terms — so it never changes `game_uid`
+  or `config_sha256`.
+- **Strategy: propose `reference`.** Our BeliefV2 scores ~65% vs greedy under it, but only ~47% under
+  `multiplicative_book_v1` (the cap-plateau hides the thief — it erases our localisation edge). It is
+  also the kit's CORE default and the opponents' own sparring default. Concede the book model only if
+  they insist; we support it cleanly either way.
+
+**Two-endpoint opponents** (e.g. anrbj666 run separate fixed-role `cop-mcp` + `thief-mcp`): run BOTH
+our endpoints, each in a FIXED role, one process each —
+```
+python -m pursuit peer --role thief  --config-dir <thief-cfg> --games 3 --fixed-role --scent-dialect <d>
+python -m pursuit peer --role police --config-dir <cop-cfg>   --games 3 --fixed-role --scent-dialect <d>
+```
+`--fixed-role` plays every sub-game in `--role` (our thief plays the odd sub-games vs their cop, our
+cop the even vs their thief); omit it for a single alternating-role peer. `--games` overrides the
+execution count only — the SIGNED `num_games` term stays 6, so the uid is unchanged.
+
+---
+
 ## TROUBLESHOOTING
 
 | Symptom | Likely cause | What to check / do |
