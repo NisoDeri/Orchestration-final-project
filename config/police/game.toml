@@ -7,7 +7,7 @@ group_id = "nis-yar1"
 members = ["Nissim Deri", "Yarden Tziar"]
 sub_game_number = 1
 repos = { cop = "https://github.com/NisoDeri/nis-yar1-cop", thief = "https://github.com/NisoDeri/nis-yar1-thief" }
-mcp_servers = { cop = "http://127.0.0.1:8802/mcp", thief = "http://127.0.0.1:8801/mcp" }
+mcp_servers = { cop = "https://duckling-judgingly-frigidly.ngrok-free.dev/cop/mcp", thief = "https://duckling-judgingly-frigidly.ngrok-free.dev/thief/mcp" }
 
 [belief]
 # BeliefV2 config (STRATEGY.md §2, D6) — all keys required by BeliefV2.__init__
