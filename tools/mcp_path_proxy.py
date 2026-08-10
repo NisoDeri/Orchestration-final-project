@@ -8,10 +8,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlsplit, urlunsplit
 
 
-ROUTES = {
-    "/cop": ("127.0.0.1", 8802),
-    "/thief": ("127.0.0.1", 8801),
-}
+ROUTES: dict[str, tuple[str, int]] = {}
 HOP_HEADERS = {
     "connection",
     "keep-alive",
@@ -76,14 +73,15 @@ class Proxy(BaseHTTPRequestHandler):
         try:
             conn.request(self.command, path, body=body, headers=headers)
             resp = conn.getresponse()
+            data = resp.read()
             self.send_response(resp.status, resp.reason)
             for key, value in resp.getheaders():
-                if key.lower() not in HOP_HEADERS:
+                if key.lower() not in HOP_HEADERS and key.lower() != "content-length":
                     self.send_header(key, value)
+            self.send_header("content-length", str(len(data)))
             self.end_headers()
-            while chunk := resp.read(65536):
-                self.wfile.write(chunk)
-                self.wfile.flush()
+            self.wfile.write(data)
+            self.wfile.flush()
         except OSError as exc:
             self._write_text(502, f"Backend unavailable at {host}:{port}: {exc}\n")
         finally:
@@ -93,9 +91,19 @@ class Proxy(BaseHTTPRequestHandler):
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--port", type=int, default=8799)
+    parser.add_argument("--host", default="127.0.0.1")
+    parser.add_argument("--cop-port", type=int, default=8802)
+    parser.add_argument("--thief-port", type=int, default=8801)
     args = parser.parse_args()
-    server = ThreadingHTTPServer(("127.0.0.1", args.port), Proxy)
-    print(f"MCP path proxy listening on http://127.0.0.1:{args.port}")
+    ROUTES.update({
+        "/cop": (args.host, args.cop_port),
+        "/thief": (args.host, args.thief_port),
+    })
+    server = ThreadingHTTPServer((args.host, args.port), Proxy)
+    print(
+        f"MCP path proxy listening on http://{args.host}:{args.port} "
+        f"(/cop -> {args.cop_port}, /thief -> {args.thief_port})"
+    )
     server.serve_forever()
 
 
