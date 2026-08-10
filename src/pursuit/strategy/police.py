@@ -58,6 +58,10 @@ class InterceptorPoliceBrain(BrainBase):
         target = belief.most_likely()
         moves = board.legal_moves(pos, barriers)
         confident = mode_probability(belief) >= self.barrier_finisher_p
+        if target == pos and not confident:
+            patrol = self._uncertain_mode_patrol(board, moves, state)
+            if patrol is not None:
+                return (MoveType.MOVE, patrol[0])
         # LANDING capture (rule 46 half-one) is UNIVERSALLY honored — a reference peer
         # rejects a barrier-on-thief (rule 46 half-two) it never implemented, so stepping
         # ONTO the mode always beats walling it when both are available (review fix).
@@ -75,6 +79,25 @@ class InterceptorPoliceBrain(BrainBase):
         if not moves:
             return (MoveType.HOLD, None)
         return (MoveType.MOVE, self._pick_move(moves, state, belief)[0])
+
+    def _uncertain_mode_patrol(
+        self, board: Any, moves: list[tuple[Direction, Cell]], state: Any
+    ) -> tuple[Direction, Cell] | None:
+        """When belief says "here" but confidence is low, keep searching instead of holding."""
+        candidates = [(direction, cell) for direction, cell in moves if direction is not Direction.STAY]
+        if not candidates:
+            return None
+
+        center = ((board.size - 1) / 2.0, (board.size - 1) / 2.0)
+
+        def rank(move: tuple[Direction, Cell]) -> tuple[int, int, float]:
+            _direction, cell = move
+            fresh = 1 if cell not in state.visited else 0
+            mobility = len(board.reachable_cells(cell, state.barriers, self.herd_k))
+            center_pull = -abs(cell[0] - center[0]) - abs(cell[1] - center[1])
+            return (fresh, mobility, center_pull)
+
+        return max(candidates, key=rank)
 
     def _tempo_lane(
         self, board: Any, pos: Cell, target: Cell, barriers: set[Cell], options: list[Cell]

@@ -231,37 +231,49 @@ class TestRefusals:
                              make_config("aa-team"), kp_a,
                              clock=(clock := FakeClock()), sleep=clock.sleep)
 
-    def test_terms_mismatch_names_the_key(self, keypairs):
+    def test_terms_mismatch_is_dropped_until_deadline(self, keypairs):
         def bigger_board(game):
             game["board_and_agents"]["grid_size"] = 9
 
         message = build_agreement_message(make_config("zz-team", bigger_board), keypairs[1][1])
-        with pytest.raises(NegotiationError, match="terms mismatch at 'board_size'"):
+        with pytest.raises(DeadlineError, match="never sent"):
             self._seed_and_run(keypairs, message)
 
-    def test_signature_tamper_refused(self, keypairs):
+    def test_signature_tamper_is_dropped_until_deadline(self, keypairs):
         message = build_agreement_message(make_config("zz-team"), keypairs[1][1])
         message["signature"] = "0" * 64
-        with pytest.raises(CryptoError, match="signature"):
+        with pytest.raises(DeadlineError, match="never sent"):
             self._seed_and_run(keypairs, message)
 
-    def test_nonce_tamper_refused(self, keypairs):
+    def test_nonce_tamper_is_dropped_until_deadline(self, keypairs):
         message = build_agreement_message(make_config("zz-team"), keypairs[1][1])
         message["nonce"] = "f" * 32
-        with pytest.raises(CryptoError, match="signature"):
+        with pytest.raises(DeadlineError, match="never sent"):
             self._seed_and_run(keypairs, message)
 
-    def test_missing_group_id_refused(self, keypairs):
+    def test_missing_group_id_is_dropped_until_deadline(self, keypairs):
         message = build_agreement_message(make_config("zz-team"), keypairs[1][1])
         del message["identity"]["group_id"]
-        with pytest.raises(CryptoError, match="group_id"):
+        with pytest.raises(DeadlineError, match="never sent"):
             self._seed_and_run(keypairs, message)
 
-    def test_lock_mismatch_refused_when_both_declare(self, keypairs):
+    def test_lock_mismatch_is_dropped_until_deadline(self, keypairs):
         message = build_agreement_message(make_config("zz-team"), keypairs[1][1])
         message["scent_model_sha256"] = "0" * 64
-        with pytest.raises(NegotiationError, match="scent_model_sha256"):
+        with pytest.raises(DeadlineError, match="never sent"):
             self._seed_and_run(keypairs, message)
+
+    def test_bad_agreement_does_not_prevent_later_valid_agreement(self, keypairs):
+        kp_a, kp_b = keypairs
+        inboxes_a = make_inboxes()
+        inboxes_a.agreements.put({"probe": "hello"})
+        inboxes_a.agreements.put(build_agreement_message(make_config("zz-team"), kp_b[1]))
+        clock = FakeClock()
+        result = run_handshake(
+            QueueTransport(make_inboxes()), inboxes_a, make_config("aa-team"), kp_a,
+            clock=clock, sleep=clock.sleep
+        )
+        assert result.game_id == "aa-team-vs-zz-team"
 
     def test_lock_omission_still_plays(self, keypairs):
         message = build_agreement_message(make_config("zz-team"), keypairs[1][1])

@@ -138,6 +138,14 @@ def test_police_finisher_needs_mode_probability() -> None:
     assert (decision.move_type, decision.direction) == (MoveType.MOVE, Direction.E)
 
 
+def test_police_patrols_when_self_is_low_confidence_mode() -> None:
+    state = make_state((6, 5), barriers={(4, 5), (5, 6)})
+    state.visited.update({(5, 5), (6, 5)})
+    decision = police().decide(state, FakeBelief((6, 5), p=0.3), "", "", MAX_BARRIERS)
+    assert decision.move_type is MoveType.MOVE
+    assert decision.direction is Direction.W
+
+
 def test_police_finisher_respects_barrier_quota() -> None:
     state = make_state((3, 3))
     state.my_barriers = MAX_BARRIERS  # quota spent -> finisher impossible, keep chasing
@@ -206,6 +214,15 @@ def test_thief_does_not_hold_on_mobility_plateau_when_escape_exists() -> None:
     )
     assert decision.move_type is MoveType.MOVE
     assert decision.direction in {Direction.S, Direction.E}
+
+
+def test_thief_prefers_fresh_equal_distance_escape_over_loop() -> None:
+    state = make_state((5, 4))
+    state.visited.update({(4, 4), (5, 4)})
+    decision = thief(w_fresh=3.0, w_recent=3.0).decide(
+        state, FakeBelief((6, 5)), "", "", MAX_BARRIERS
+    )
+    assert (decision.move_type, decision.direction) == (MoveType.MOVE, Direction.W)
 
 
 def test_thief_survives_unreachable_threat_cell() -> None:

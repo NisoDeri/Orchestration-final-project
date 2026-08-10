@@ -16,7 +16,7 @@ from types import SimpleNamespace
 import pytest
 from test_handshake import FakeClock, QueueTransport, keypairs, make_config
 
-from pursuit.exceptions import NegotiationError
+from pursuit.exceptions import DeadlineError
 from pursuit.peer.agreement import build_agreement_message
 from pursuit.peer.handshake import run_handshake
 
@@ -63,9 +63,9 @@ class TestPairingTruthTable:
         result = _run_against(kp_a, kp_b, mine=mine, theirs=theirs)
         assert result.game_id == "aa-team-vs-zz-team"  # got a Handshake, i.e. it played
 
-    def test_sub_game_mismatch_refuses(self, keypairs):
+    def test_sub_game_mismatch_is_dropped_until_deadline(self, keypairs):
         kp_a, kp_b = keypairs
-        with pytest.raises(NegotiationError, match="sub_game_number ours=3 theirs=5"):
+        with pytest.raises(DeadlineError, match="never sent"):
             _run_against(kp_a, kp_b, mine={"sub_game_number": 3, "role": "thief"},
                          theirs={"sub_game_number": 5, "role": "police"})
 
@@ -83,9 +83,9 @@ class TestPairingTruthTable:
             sub_game_number=5, role="thief")
         assert result.game_id == "aa-team-vs-zz-team"
 
-    def test_same_role_refuses(self, keypairs):
+    def test_same_role_is_dropped_until_deadline(self, keypairs):
         kp_a, kp_b = keypairs
-        with pytest.raises(NegotiationError, match="both declared role='police'"):
+        with pytest.raises(DeadlineError, match="never sent"):
             _run_against(kp_a, kp_b, mine={"sub_game_number": 3, "role": "police"},
                          theirs={"sub_game_number": 3, "role": "police"})
 
@@ -119,5 +119,5 @@ def test_vector_rows_match_our_decisions(keypairs):
         if expected == "play":
             assert _run_against(kp_a, kp_b, mine=row["ours"], theirs=row["theirs"])
         else:
-            with pytest.raises(NegotiationError):
+            with pytest.raises(DeadlineError):
                 _run_against(kp_a, kp_b, mine=row["ours"], theirs=row["theirs"])

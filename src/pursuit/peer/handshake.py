@@ -116,7 +116,7 @@ def _receive_agreement(inboxes: Inboxes, deadline: float, poll: float, clock, sl
             sleep(poll)
             continue
         if not isinstance(message, dict):
-            raise CryptoError(f"malformed agreement message: {type(message).__name__}")
+            continue
         return message
 
 
@@ -151,8 +151,46 @@ def _receive_with_reoffer(
             sleep(min(poll, max(0.0, next_offer - now, deadline - now)))
             continue
         if not isinstance(theirs, dict):
-            raise CryptoError(f"malformed agreement message: {type(theirs).__name__}")
+            continue
         return theirs
+
+
+def _candidate_handshake(
+    mine: dict[str, Any],
+    theirs: dict[str, Any],
+    config: ConfigManager,
+    sub_game_number: int | None,
+    role: str | None,
+) -> Handshake:
+    their_terms, their_nonce = theirs.get("terms"), theirs.get("nonce")
+    their_signature = theirs.get("signature")
+    if (
+        not isinstance(their_terms, dict)
+        or not isinstance(their_nonce, str)
+        or not isinstance(their_signature, str)
+    ):
+        raise CryptoError("agreement message missing terms/nonce/signature")
+    verify_terms(mine["terms"], their_terms)  # step 3a - exact equality first
+    if not verify_agreement_signature(their_terms, their_nonce, their_signature):
+        raise CryptoError("agreement signature mismatch - refusing to play (INTEROP 4.3b)")
+    _assert_optional_locks(mine, theirs)
+    _assert_pairing(sub_game_number, role, theirs)
+    identity = theirs.get("identity")
+    identity = identity if isinstance(identity, dict) else {}
+    opponent_gid = identity.get("group_id")
+    if not isinstance(opponent_gid, str) or not opponent_gid:
+        raise CryptoError("opponent identity missing group_id - cannot derive game ids")
+    my_gid = config.private("game.group_id")
+    game_id, game_uid = derive_game_ids(their_terms, [my_gid, opponent_gid])
+    counted = identity.get("counted_games_so_far")
+    return Handshake(
+        game_id=game_id,
+        game_uid=game_uid,
+        terms=their_terms,
+        opponent_identity=identity,
+        opponent_pubkey=identity.get("ed25519_public_key"),
+        opponent_counted_games=counted if isinstance(counted, int) else None,
+    )
 
 
 def run_handshake(
@@ -186,32 +224,7 @@ def run_handshake(
         )
         if _is_stale_pairing(sub_game_number, theirs):
             continue
-        their_terms, their_nonce = theirs.get("terms"), theirs.get("nonce")
-        their_signature = theirs.get("signature")
-        if not isinstance(their_terms, dict) or not isinstance(their_nonce, str):
-            raise CryptoError("agreement message missing terms/nonce")
-        verify_terms(mine["terms"], their_terms)  # step 3a — exact equality first
-        if not isinstance(their_signature, str) or not verify_agreement_signature(
-            their_terms, their_nonce, their_signature
-        ):
-            raise CryptoError("agreement signature mismatch — refusing to play (INTEROP §4.3b)")
-        _assert_optional_locks(mine, theirs)
-        _assert_pairing(sub_game_number, role, theirs)  # §7.2 pairing declaration guard
-        break
-
-    identity = theirs.get("identity")
-    identity = identity if isinstance(identity, dict) else {}
-    opponent_gid = identity.get("group_id")
-    if not isinstance(opponent_gid, str) or not opponent_gid:
-        raise CryptoError("opponent identity missing group_id — cannot derive game ids")
-    my_gid = config.private("game.group_id")
-    game_id, game_uid = derive_game_ids(their_terms, [my_gid, opponent_gid])
-    counted = identity.get("counted_games_so_far")
-    return Handshake(
-        game_id=game_id,
-        game_uid=game_uid,
-        terms=their_terms,
-        opponent_identity=identity,
-        opponent_pubkey=identity.get("ed25519_public_key"),
-        opponent_counted_games=counted if isinstance(counted, int) else None,
-    )
+        try:
+            return _candidate_handshake(mine, theirs, config, sub_game_number, role)
+        except (CryptoError, NegotiationError):
+            continue
