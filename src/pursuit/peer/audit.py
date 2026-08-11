@@ -32,6 +32,7 @@ class SubgameOutcome:
     records: list[dict[str, Any]]  # my sealed chain, nonces revealed (post-audit)
     steps: int  # my OWN step counter (ruling A5)
     end_state_digest: str
+    end_state_digest_preimage: str
     game_id: str
     game_uid: str
     opponent_group: str

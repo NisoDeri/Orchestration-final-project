@@ -23,7 +23,8 @@ from pursuit.infra.transport import FakeTransport
 from pursuit.peer.fsm import State
 from pursuit.peer.handshake import Handshake
 from pursuit.peer.inboxes import PeerInboxes
-from pursuit.peer.runtime import PeerRuntime
+from pursuit.domain.board import Board
+from pursuit.peer.runtime import PeerRuntime, _end_state_digest_preimage
 from pursuit.shared.config import ConfigManager
 
 SPEC = {"os": "TestOS", "cpu_type": "TestCPU", "cpu_freq_mhz": 1, "cpu_cores": 1,
@@ -247,3 +248,27 @@ def test_both_crypto_dialects_cross_audit_clean(dialect):
     game["crypto"]["dialect"] = dialect
     out_p, out_t = duel([], [], game)
     assert out_p.audit["passed"] and out_t.audit["passed"]
+
+
+def test_end_state_preimage_replays_action_only_opponent_records() -> None:
+    own = [{"payload": {"step": 10, "position": [4, 6],
+                        "state": "grid=7x7;self=[4, 6];barriers=[]"}}]
+    theirs = [
+        {"payload": {"step": 1, "action": {"type": "move", "move": "E"}}},
+        {"payload": {"step": 2, "action": {"type": "move", "move": "S"}}},
+        {"payload": {"step": 3, "action": {"type": "move", "move": "E"}}},
+        {"payload": {"step": 4, "action": {"type": "move", "move": "E"}}},
+        {"payload": {"step": 5, "action": {"type": "move", "move": "S"}}},
+        {"payload": {"step": 6, "action": {"type": "move", "move": "S"}}},
+        {"payload": {"step": 7, "action": {"type": "move", "move": "E"}}},
+        {"payload": {"step": 8, "action": {"type": "move", "move": "E"}}},
+        {"payload": {"step": 9, "action": {"type": "move", "move": "S"}}},
+        {"payload": {"step": 10, "action": {"type": "move", "move": "E"}}},
+    ]
+    preimage = _end_state_digest_preimage(
+        Role.THIEF, GameResult.CAPTURE, Role.POLICE, own, theirs, set(), 11, 10,
+        Board(7, ["N", "S", "E", "W", "STAY"]), (0, 0), (3, 3))
+    assert preimage == (
+        '{"barriers":[],"outcome":"capture",'
+        '"positions":{"police":[4,6],"thief":[4,6]},"turns_completed":10}'
+    )

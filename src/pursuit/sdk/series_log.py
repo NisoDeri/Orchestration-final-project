@@ -74,6 +74,8 @@ def sub_row(number: int, role: Role, my_gid: str, opp_gid: str,
             "steps": outcome.steps, "turns_completed": turns,
             "step_count_convention": _STEP_COUNT_CONVENTION,
             "end_state_digest": _outcome_attr(outcome, "end_state_digest", None),
+            "end_state_digest_preimage": _outcome_attr(
+                outcome, "end_state_digest_preimage", None),
             "digest_match": _digest_match(outcome),
             "game_uid": outcome.game_uid,
             "opponent_identity": dict(_outcome_attr(outcome, "opponent_identity", {}) or {}),
@@ -94,6 +96,8 @@ def log_document(number: int, role: Role, my_gid: str,
                         "steps": outcome.steps, "turns_completed": turns,
                         "step_count_convention": _STEP_COUNT_CONVENTION,
                         "end_state_digest": _outcome_attr(outcome, "end_state_digest", None),
+                        "end_state_digest_preimage": _outcome_attr(
+                            outcome, "end_state_digest_preimage", None),
                         "digest_match": _digest_match(outcome),
                         "audit": outcome.audit},
             "records": outcome.records}

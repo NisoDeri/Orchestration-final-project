@@ -3,13 +3,15 @@
 
 from __future__ import annotations
 
+import ast
 from hashlib import sha256
 import json
 import queue
+import re
 import time
 from typing import Any
 
-from pursuit.constants import GameResult, Role
+from pursuit.constants import Direction, GameResult, Role
 from pursuit.domain.board import Board
 from pursuit.domain.own_state import OwnGameState
 from pursuit.domain.scent import make_scent_model
@@ -109,12 +111,16 @@ class PeerRuntime:
             result, winner = GameResult.TECHNICAL_LOSS, None  # provable forgery (A9a)
         self.fsm.advance(State.DONE)
         records = self.log.audit_reveal()
+        digest_preimage = _end_state_digest_preimage(
+            self.role, result, winner, records, audit.get("their_records"),
+            self.state.barriers, self.state.step_number, self.handler.last_step,
+            self.state.board, tuple(self.config.game("board_and_agents.cop_start")),
+            tuple(self.config.game("board_and_agents.thief_start")))
         return SubgameOutcome(
             result=result, winner=winner, scores=self.table.score_subgame(result, winner),
             audit=audit, records=records, steps=self.state.step_number,
-            end_state_digest=_end_state_digest(
-                self.role, result, winner, records, audit.get("their_records"),
-                self.state.barriers, self.state.step_number, self.handler.last_step),
+            end_state_digest=sha256(digest_preimage.encode("utf-8")).hexdigest(),
+            end_state_digest_preimage=digest_preimage,
             game_id=self.handshake.game_id, game_uid=self.handshake.game_uid,
             opponent_group=str(self.handshake.opponent_identity.get("group_id", "")),
             opponent_identity=dict(self.handshake.opponent_identity))
@@ -161,41 +167,151 @@ class PeerRuntime:
 def _end_state_digest(role: Role, result: GameResult, winner: Role | None,
                       records: list[dict[str, Any]], their_records: Any,
                       barriers: set[tuple[int, int]], own_steps: int,
-                      their_steps: int) -> str:
+                      their_steps: int, board: Board | None = None,
+                      cop_start: tuple[int, int] | None = None,
+                      thief_start: tuple[int, int] | None = None) -> str:
     """Symmetric compact end-state hash agreed for counted-game digest comparison."""
+    preimage = _end_state_digest_preimage(
+        role, result, winner, records, their_records, barriers, own_steps, their_steps,
+        board, cop_start, thief_start)
+    return sha256(preimage.encode("utf-8")).hexdigest()
+
+
+def _end_state_digest_preimage(role: Role, result: GameResult, winner: Role | None,
+                               records: list[dict[str, Any]], their_records: Any,
+                               barriers: set[tuple[int, int]], own_steps: int,
+                               their_steps: int, board: Board | None = None,
+                               cop_start: tuple[int, int] | None = None,
+                               thief_start: tuple[int, int] | None = None) -> str:
+    """Compact JSON line hashed for ``end_state_digest``.
+
+    Prefer revealed positions; when an opponent reveals only audited actions, replay those
+    actions from the signed start cell so both sides can still reach the same final state.
+    """
     positions = {
-        role.value: _last_position(records),
-        role.opponent.value: _last_position(their_records),
+        role.value: _last_position(records, board, _start_for(role, cop_start, thief_start)),
+        role.opponent.value: _last_position(
+            their_records, board, _start_for(role.opponent, cop_start, thief_start)),
     }
+    all_barriers = set(barriers) | _record_barriers(records) | _record_barriers(their_records)
     state = {
         "positions": {
             "police": positions.get(Role.POLICE.value),
             "thief": positions.get(Role.THIEF.value),
         },
-        "barriers": [list(cell) for cell in sorted(barriers)],
+        "barriers": [list(cell) for cell in sorted(all_barriers)],
         "turns_completed": _digest_turns_completed(role, winner, own_steps, their_steps),
         "outcome": result.value,
     }
-    return sha256(json.dumps(state, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
+    return json.dumps(state, sort_keys=True, separators=(",", ":"))
 
 
-def _last_position(records: Any) -> list[int] | None:
+def _start_for(role: Role, cop_start: tuple[int, int] | None,
+               thief_start: tuple[int, int] | None) -> tuple[int, int] | None:
+    return cop_start if role is Role.POLICE else thief_start
+
+
+def _last_position(records: Any, board: Board | None = None,
+                   start: tuple[int, int] | None = None) -> list[int] | None:
     latest_step = -1
     latest_position: list[int] | None = None
+    replay_position = start
+    replay_barriers: set[tuple[int, int]] = set()
     for record in records or []:
         payload = record.get("payload", {}) if isinstance(record, dict) else {}
+        state_position, state_barriers = _parse_state(payload.get("state"))
+        if state_position is not None:
+            latest_position = list(state_position)
+            latest_step = int(payload.get("step", latest_step) or latest_step)
+        if state_barriers:
+            replay_barriers = set(state_barriers)
         position = payload.get("position")
         if not (isinstance(position, list) and len(position) == 2):
-            continue
-        if not all(isinstance(value, int) and not isinstance(value, bool) for value in position):
-            continue
-        try:
-            step = int(payload.get("step", 0) or 0)
-        except Exception:  # noqa: BLE001
-            step = 0
-        if step >= latest_step:
-            latest_step, latest_position = step, list(position)
+            position = None
+        if position and all(isinstance(value, int) and not isinstance(value, bool)
+                            for value in position):
+            step = _step(payload)
+            if step >= latest_step:
+                latest_step, latest_position = step, list(position)
+        if board is not None and replay_position is not None and isinstance(
+                payload.get("action"), dict):
+            replay_position = _advance_from_action(board, replay_position, replay_barriers, payload)
+            if replay_position is not None and _step(payload) >= latest_step:
+                latest_step, latest_position = _step(payload), list(replay_position)
     return latest_position
+
+
+def _advance_from_action(board: Board, position: tuple[int, int],
+                         barriers: set[tuple[int, int]], payload: dict[str, Any]
+                         ) -> tuple[int, int] | None:
+    action = payload.get("action")
+    if not isinstance(action, dict):
+        return position
+    if action.get("type") == "barrier":
+        cell = _cell(action.get("cell"))
+        if cell is not None:
+            barriers.add(cell)
+        return position
+    if action.get("type") != "move":
+        return position
+    try:
+        direction = Direction(str(action.get("move")))
+    except Exception:  # noqa: BLE001
+        return position
+    return board.step(position, direction, barriers) or position
+
+
+def _record_barriers(records: Any) -> set[tuple[int, int]]:
+    seen: set[tuple[int, int]] = set()
+    for record in records or []:
+        payload = record.get("payload", {}) if isinstance(record, dict) else {}
+        _pos, state_barriers = _parse_state(payload.get("state"))
+        seen.update(state_barriers)
+        barrier = _cell(payload.get("barrier_placed"))
+        if barrier is not None:
+            seen.add(barrier)
+        action = payload.get("action")
+        if isinstance(action, dict) and action.get("type") == "barrier":
+            barrier = _cell(action.get("cell"))
+            if barrier is not None:
+                seen.add(barrier)
+    return seen
+
+
+_SELF_RE = re.compile(r"self=(\[-?\d+,\s*-?\d+\])")
+_BARRIERS_RE = re.compile(r"barriers=(\[.*\])")
+
+
+def _parse_state(state: Any) -> tuple[tuple[int, int] | None, list[tuple[int, int]]]:
+    if not isinstance(state, str):
+        return None, []
+    self_match = _SELF_RE.search(state)
+    position = _cell(_literal(self_match.group(1))) if self_match else None
+    barrier_match = _BARRIERS_RE.search(state)
+    raw = _literal(barrier_match.group(1)) if barrier_match else []
+    barriers = [_cell(item) for item in raw] if isinstance(raw, list) else []
+    return position, [cell for cell in barriers if cell is not None]
+
+
+def _literal(text: str) -> Any:
+    try:
+        return ast.literal_eval(text)
+    except (ValueError, SyntaxError):
+        return None
+
+
+def _cell(value: Any) -> tuple[int, int] | None:
+    if (isinstance(value, list | tuple) and len(value) == 2
+            and all(isinstance(v, int) and not isinstance(v, bool) for v in value)):
+        return (value[0], value[1])
+    return None
+
+
+def _step(payload: dict[str, Any]) -> int:
+    try:
+        return int(payload.get("step", 0) or 0)
+    except Exception:  # noqa: BLE001
+        return 0
 
 
 def _digest_turns_completed(role: Role, winner: Role | None,
