@@ -1,4 +1,4 @@
-# THIEF peer — PRIVATE local settings only. Shared/agreed terms live in game.json.
+# POLICE peer — PRIVATE local settings only. Shared/agreed terms live in game.json.
 version = "0.1.0"
 
 [game]
@@ -28,16 +28,12 @@ lie_inversion_below = 0.3      # reliability threshold below which lie-inversion
 [police]
 barrier_finisher_p = 0.65    # trigger finisher (rule-46 capture) earlier; default 0.8
 cage_radius = 5               # start caging earlier on 7x7; default 2
-close_barrier_p = 0.35        # low-confidence edge/corner seal instead of HOLD
 
 [thief]
 w_dist = 1.2                  # stronger flight-weight; default 1.0
 w_mob  = 0.5                  # stronger mobility bonus; default 0.4
 mobility_k = 4                # k-step horizon; default 3
 jail_min_mobility = 2         # stay same; default 2
-decoy_enabled = true          # vary scent route when we have enough distance margin
-decoy_margin = 5
-jitter_epsilon = 1.25         # private-rng tie break among near-equal safe moves
 
 [strategy]
 police_class = "pursuit.strategy.police:InterceptorPoliceBrain"
@@ -58,8 +54,8 @@ injection_penalty = 0.25
 max_lie_rate = 0.35
 
 [network]
-my_port = 8801
-opponent_url = "https://cop-mcp.alon.website/mcp"
+my_port = 8802
+opponent_url = "https://thief.imreeyal.com/mcp"
 turn_timeout_seconds = 180
 brain_deadline_seconds = 15.0   # wall-clock bound on our move (peer/brain_clock); a hung brain -> safe HOLD
 poll_interval_seconds = 0.5
@@ -68,9 +64,8 @@ retry_interval_seconds = 1.0
 audit_send_timeout_seconds = 10
 
 [email]
-recipient = "alonisrael.engel@gmail.com"
-sender = "yardentziar@gmail.com"
-enabled = true
+recipient = "rmisegal+uoh26finalgame@gmail.com"
+enabled = false
 credentials_dir = "secrets"    # git-ignored; HW6 OAuth send-only token
 
 [paths]
