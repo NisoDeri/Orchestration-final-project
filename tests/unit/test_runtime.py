@@ -9,6 +9,8 @@ technical_loss 0/0 (ruling A9a).
 
 from __future__ import annotations
 
+import json
+from hashlib import sha256
 import threading
 from types import SimpleNamespace
 
@@ -138,6 +140,15 @@ class TestEndings:
             assert outcome.audit["passed"] and not outcome.audit["forgery"]
         assert out_p.game_id == out_t.game_id == "aa-team-vs-zz-team"
         assert out_p.game_uid == out_t.game_uid
+        assert len(out_p.end_state_digest) == 64
+        assert out_p.end_state_digest == out_t.end_state_digest
+        expected_state = {"positions": {"police": [2, 1], "thief": [2, 1]},
+                          "barriers": [], "turns_completed": 3, "outcome": "capture"}
+        assert out_p.end_state_digest == sha256(json.dumps(
+            expected_state, sort_keys=True, separators=(",", ":")
+        ).encode("utf-8")).hexdigest()
+        assert out_p.records[-1]["payload"]["model"] == "stub"
+        assert out_p.opponent_identity["group_id"] == "zz-team"
         assert out_t.records[-1]["payload"]["hint"] == CAPTURE_CONCESSION_HINT
         assert out_t.records[0]["payload"]["type"] == "system_spec"
 

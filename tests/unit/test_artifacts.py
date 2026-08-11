@@ -18,6 +18,7 @@ from pursuit.report.artifacts import (
     build_result_artifact,
     write_artifacts,
 )
+from pursuit.report.consensus import mutual_agreement_signature
 
 GAME_ID = "nis-yar1-vs-seg-team"
 HEBREW = "קבוצת ירדן"
@@ -42,6 +43,7 @@ def series_summary() -> dict:
             {"sub_game_number": 1, "roles": {"nis-yar1": "police", "seg-team": "thief"},
              "result": "capture", "winner_role": "police", "game_uid": "uid-1",
              "score": {"nis-yar1": 20, "seg-team": 5}, "tokens": {"nis-yar1": 120},
+             "steps": 8, "turns_completed": 8, "end_state_digest": "digest-1",
              "audit": {"passed": True, "forgery": False}},
             {"sub_game_number": 2, "roles": {"nis-yar1": "thief", "seg-team": "police"},
              "result": "survival", "winner_role": "thief", "game_uid": "uid-2",
@@ -54,7 +56,12 @@ def series_summary() -> dict:
 def test_declaration_required_keys(sysinfo: dict) -> None:
     decl = build_declaration(sysinfo, "nis-yar1", ["id-1", "id-2"], "deadbeef", 3,
                              "PUBKEY==", {"cop": "https://gh/x", "thief": "https://gh/x"},
-                             "seg-team", GAME_ID, "uid-0", 2)
+                             "seg-team", GAME_ID, "uid-0", 2,
+                             {"group_id": "seg-team", "members": ["C", "D"],
+                              "repos": {"cop": "https://gh/seg-c"},
+                              "mcp_servers": {"cop": "https://seg/c/mcp"},
+                              "llm_model": "qwen3:14b"},
+                             {"cop": "https://ours/c/mcp"})
     assert decl["schema_version"] == "1.1"
     assert decl["github_commit"] == "deadbeef"
     assert decl["github_commit"] != "unknown"
@@ -62,10 +69,16 @@ def test_declaration_required_keys(sysinfo: dict) -> None:
     assert decl["repos"]["cop"] == "https://gh/x"
     assert decl["hardware_spec"]["gpu_model"] == "RTX 3500 Ada"
     assert decl["public_key_b64"] == "PUBKEY=="
+    assert decl["llm_model"] == "qwen2.5:7b"
     # App. F table-20 join keys: both group ids named, one uid, series length
     assert decl["game_id"] == GAME_ID and decl["game_uid"] == "uid-0"
     assert decl["num_sub_games"] == 2
     assert [b["group_id"] for b in decl["groups"].values()] == ["nis-yar1", "seg-team"]
+    assert decl["groups"]["group_1"]["mcp_servers"]["cop"] == "https://ours/c/mcp"
+    assert decl["groups"]["group_1"]["llm_model"] == "qwen2.5:7b"
+    assert decl["groups"]["group_2"]["members"] == ["C", "D"]
+    assert decl["groups"]["group_2"]["repos"]["cop"] == "https://gh/seg-c"
+    assert decl["groups"]["group_2"]["llm_model"] == "qwen3:14b"
 
 
 def test_config_artifact_lock_and_terms() -> None:
@@ -89,13 +102,17 @@ def test_result_totals_match(series_summary: dict) -> None:
     assert final["winner_group"] == "nis-yar1"
     # real token totals summed per group (reference emitted 0) -> fixed
     assert final["tokens_total_series"] == {"nis-yar1": 120, "seg-team": 30}
-    # mutual-agreement SHA is the agreed config lock
-    assert result["mutual_agreement"]["sha256"] == "abc123"
+    # mutual-agreement SHA is the symmetric outcome hash, not the config lock.
+    assert result["mutual_agreement"]["sha256"] == mutual_agreement_signature(result)
+    assert result["mutual_agreement"]["sha256"] != "abc123"
     assert result["mutual_agreement"]["confirmed"] is True
     rows = result["sub_games"]
     assert [r["result"] for r in rows] == ["capture", "survival"]
     assert rows[0]["winner_group"] == "nis-yar1"
     assert rows[0]["audit"] == {"log_verified": True, "tampered": False}
+    assert rows[0]["steps"] == 8
+    assert rows[0]["turns_completed"] == 8
+    assert rows[0]["end_state_digest"] == "digest-1"
 
 
 def test_result_technical_loss_mapping(series_summary: dict) -> None:
@@ -109,13 +126,16 @@ def test_result_technical_loss_mapping(series_summary: dict) -> None:
 def test_log_artifact_passthrough() -> None:
     subgame_log = {
         "summary": {"sub_game_number": 1, "game_id": GAME_ID, "game_uid": "uid-1",
-                    "group_id": "nis-yar1", "role": "police", "hint": HEBREW},
+                    "group_id": "nis-yar1", "role": "police", "hint": HEBREW,
+                    "turns_completed": 8, "end_state_digest": "digest"},
         "records": [{"payload": {"step": 0}, "commit": "c0"}],
     }
     log = build_log_artifact(subgame_log)
     assert log["schema_version"] == "1.1"
     assert log["game_id"] == GAME_ID
     assert log["summary"]["hint"] == HEBREW
+    assert log["summary"]["turns_completed"] == 8
+    assert log["summary"]["end_state_digest"] == "digest"
     assert log["records"][0]["commit"] == "c0"
     assert "declaration" in log["links"]
 

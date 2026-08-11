@@ -49,11 +49,12 @@ class TurnSender:
 
     def __init__(self, role: Role | str, *, barriers_max: int, survival_threshold: int,
                  hint_max_words: int, setting: str, brain_deadline: float | None = None,
-                 now: Any = None) -> None:
+                 model: str = "stub", now: Any = None) -> None:
         self.role = Role(role)  # every game parameter arrives from the signed config
         self.barriers_max, self.survival_threshold = int(barriers_max), int(survival_threshold)
         self.hint_max_words, self.setting = int(hint_max_words), setting
         self.brain_deadline = brain_deadline  # wall-clock bound on the move (peer/brain_clock)
+        self.model = str(model or "stub")
         self.step_counter = rules.StepCounter()  # MY turn clock — ruling A5 semantics
         self._now = now or (lambda: datetime.now(UTC).isoformat())
 
@@ -86,6 +87,7 @@ class TurnSender:
             step, self.role.value,
             extra={"prompt_discussion": {"llm_prompt": prompt, "llm_reasoning": reasoning,
                                          "bluff_classification": verdict},
+                   "model": self.model,
                    "response_seconds": seconds, "random_move": random_move}))
         survived = (self.role is Role.THIEF and not concede
                     and rules.survived(self.step_counter, self.survival_threshold))

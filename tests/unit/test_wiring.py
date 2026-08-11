@@ -117,15 +117,48 @@ def test_maybe_email_sends_through_gatekeeper_when_enabled(monkeypatch):
     calls = {}
 
     class _FakeSender:
-        def send_result(self, subject, body_dict, to=None):
+        def __init__(self, token_path="secrets/token.json", smtp_path="secrets/smtp.json"):
+            calls["token"], calls["smtp"] = str(token_path), str(smtp_path)
+
+        def send_result(self, subject, body_dict, to=None, sender=None):
             calls["subject"], calls["body"] = subject, body_dict
+            calls["to"], calls["sender"] = to, sender
             return {"sent": True, "reason": "fake"}
 
     monkeypatch.setattr(email_mod, "GmailSender", _FakeSender)
-    cfg = ConfigManager({"rate_limiter_gatekeeper": {}}, {"email": {"enabled": True}}, {})
-    maybe_email(cfg, _SUMMARY, {"_schema": "final_game_result", "game_id": "g"})
-    assert calls["subject"] == "pursuit result nis-yar1-vs-opp"
+    cfg = ConfigManager(
+        {"rate_limiter_gatekeeper": {}, "network_and_league": {"num_games": 1}},
+        {"email": {"enabled": True, "recipient": "alon@example.com",
+                   "sender": "yarden@example.com", "credentials_dir": "secrets"}},
+        {})
+    maybe_email(cfg, _SUMMARY, {"_schema": "final_game_result", "game_id": "nis-yar1-vs-opp",
+                                "num_sub_games": 1,
+                                "final_result": {
+                                    "total_score": {"nis-yar1": 20, "opp": 5},
+                                    "winner_group": "nis-yar1",
+                                    "series_tie": False,
+                                }})
+    assert calls["subject"] == (
+        "P2P league SERIES result - nis-yar1-vs-opp - "
+        "winner=nis-yar1 - nis-yar1:20 opp:5"
+    )
     assert calls["body"]["_schema"] == "final_game_result"  # the result artifact was forwarded
+    assert calls["to"] == "alon@example.com"
+    assert calls["sender"] == "yarden@example.com"
+    assert calls["token"].endswith("secrets\\token.json") or calls["token"].endswith("secrets/token.json")
+
+
+def test_maybe_email_skips_partial_fixed_role_result(monkeypatch):
+    def _forbidden(*a, **k):
+        raise AssertionError("partial result must not be emailed")
+
+    monkeypatch.setattr(email_mod, "GmailSender", _forbidden)
+    cfg = ConfigManager(
+        {"rate_limiter_gatekeeper": {}, "network_and_league": {"num_games": 6}},
+        {"email": {"enabled": True}},
+        {})
+    maybe_email(cfg, _SUMMARY, {"_schema": "final_game_result", "game_id": "g",
+                                "num_sub_games": 3})
 
 
 # --- CLI: replay + agent-vs-agent dispatch ---------------------------------------------------

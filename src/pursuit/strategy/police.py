@@ -45,11 +45,13 @@ class InterceptorPoliceBrain(BrainBase):
         barrier_finisher_p: float = 0.8,  # STRATEGY §7 police.finisher_threshold default
         cage_radius: int = 2,  # tempo test trigger distance (v1 stand-in for the cage planner)
         herd_k: int = 4,  # horizon of the thief-escape region we collapse on distance ties
+        close_barrier_p: float = 0.35,
     ) -> None:
         super().__init__(talk, rng)
         self.barrier_finisher_p = float(barrier_finisher_p)
         self.cage_radius = int(cage_radius)
         self.herd_k = int(herd_k)
+        self.close_barrier_p = float(close_barrier_p)
 
     def _decide_move(
         self, state: Any, belief: BeliefLike, barriers_max: int
@@ -73,12 +75,23 @@ class InterceptorPoliceBrain(BrainBase):
             options = barrier_options(board, pos, barriers)
             if target in options and confident:  # can't land it -> wall it (book-peer capture)
                 return (MoveType.BARRIER, _direction_toward(pos, target))
+            if target in options and mode_probability(belief) >= self.close_barrier_p:
+                if self._edge_or_corner(board, target):
+                    return (MoveType.BARRIER, _direction_toward(pos, target))
+            jail = self._jail_completion(board, pos, target, barriers, options, belief)
+            if jail is not None:
+                return (MoveType.BARRIER, _direction_toward(pos, jail))
             lane = self._tempo_lane(board, pos, target, barriers, options)
             if lane is not None:
                 return (MoveType.BARRIER, _direction_toward(pos, lane))
         if not moves:
             return (MoveType.HOLD, None)
-        return (MoveType.MOVE, self._pick_move(moves, state, belief)[0])
+        picked = self._pick_move(moves, state, belief)
+        if picked[0] is Direction.STAY:
+            patrol = self._uncertain_mode_patrol(board, moves, state)
+            if patrol is not None:
+                picked = patrol
+        return (MoveType.MOVE, picked[0])
 
     def _uncertain_mode_patrol(
         self, board: Any, moves: list[tuple[Direction, Cell]], state: Any
@@ -136,6 +149,32 @@ class InterceptorPoliceBrain(BrainBase):
         before = board.bfs_distance(pos, target, barriers)
         after = board.bfs_distance(pos, target, barriers | {wall})
         return after is None or (before is not None and after > before)
+
+    @staticmethod
+    def _edge_or_corner(board: Any, cell: Cell) -> bool:
+        return cell[0] in (0, board.size - 1) or cell[1] in (0, board.size - 1)
+
+    def _jail_completion(
+        self, board: Any, pos: Cell, target: Cell, barriers: set[Cell],
+        options: list[Cell], belief: BeliefLike
+    ) -> Cell | None:
+        """Finish a corner/edge cage by walling the target's last real exit."""
+        if mode_probability(belief) < self.close_barrier_p or not self._edge_or_corner(board, target):
+            return None
+        reach = set(options)
+        exits = sorted(
+            cell for direction, cell in board.legal_moves(target, barriers)
+            if direction is not Direction.STAY
+        )
+        for cell in exits:
+            if cell in reach:
+                remaining = [
+                    c for direction, c in board.legal_moves(target, barriers | {cell})
+                    if direction is not Direction.STAY
+                ]
+                if not remaining:
+                    return cell
+        return None
 
     def _pick_move(
         self, moves: list[tuple[Direction, Cell]], state: Any, belief: BeliefLike

@@ -146,6 +146,23 @@ def test_police_patrols_when_self_is_low_confidence_mode() -> None:
     assert decision.direction is Direction.W
 
 
+def test_police_low_confidence_seals_adjacent_edge_target() -> None:
+    state = make_state((6, 5), barriers={(4, 5), (5, 6)})
+    decision = police(close_barrier_p=0.35).decide(
+        state, FakeBelief((6, 6), p=0.4), "", "", MAX_BARRIERS
+    )
+    assert (decision.move_type, decision.direction) == (MoveType.BARRIER, Direction.E)
+
+
+def test_police_completes_corner_jail_from_one_cell_away() -> None:
+    state = make_state((6, 4), barriers={(4, 5), (5, 6)})
+    state.my_barriers = 2
+    decision = police(close_barrier_p=0.35).decide(
+        state, FakeBelief((6, 6), p=0.4), "", "", MAX_BARRIERS
+    )
+    assert (decision.move_type, decision.direction) == (MoveType.BARRIER, Direction.E)
+
+
 def test_police_finisher_respects_barrier_quota() -> None:
     state = make_state((3, 3))
     state.my_barriers = MAX_BARRIERS  # quota spent -> finisher impossible, keep chasing
@@ -214,6 +231,14 @@ def test_thief_does_not_hold_on_mobility_plateau_when_escape_exists() -> None:
     )
     assert decision.move_type is MoveType.MOVE
     assert decision.direction in {Direction.S, Direction.E}
+
+
+def test_thief_avoids_corner_that_remaining_barriers_can_seal() -> None:
+    state = make_state((6, 5))
+    decision = thief(w_dist=1.2, w_mob=0.5, mobility_k=4).decide(
+        state, FakeBelief((0, 0)), "", "", MAX_BARRIERS
+    )
+    assert decision.direction is not Direction.E  # (6,6) has two exits; cop has charges
 
 
 def test_thief_prefers_fresh_equal_distance_escape_over_loop() -> None:

@@ -162,9 +162,17 @@ class TestFakeOpponentSeries:
             records = [{"payload": {"step": 0, "sub_game_number": 1}, "nonce": "n",
                         "commit": "c"}]
             steps = 8
+            end_state_digest = "digest"
             game_id = "anrbj666-vs-nis-yar1"
             game_uid = "uid"
             opponent_group = "anrbj666"
+            opponent_identity = {
+                "group_id": "anrbj666",
+                "members": ["Alon", "Renat"],
+                "repos": {"cop": "https://gh/anrbj666/cop"},
+                "mcp_servers": {"cop": "https://cop-mcp.alon.website/mcp"},
+                "llm_model": "qwen3:14b",
+            }
 
         first = log_document(1, Role.THIEF, GID, Outcome())
         write_json(out_dir / "log_anrbj666-vs-nis-yar1_g01.json", first)
@@ -180,8 +188,13 @@ class TestFakeOpponentSeries:
                             .read_text(encoding="utf-8"))
         assert [row["sub_game_number"] for row in result["sub_games"]] == [1, 3]
         assert result["num_sub_games"] == 2
+        assert result["sub_games"][0]["end_state_digest"] == "digest"
         assert (out_dir / "config_anrbj666-vs-nis-yar1_g01.json").exists()
         assert (out_dir / "config_anrbj666-vs-nis-yar1_g03.json").exists()
+        declaration = json.loads((out_dir / "declaration_anrbj666-vs-nis-yar1.json")
+                                 .read_text(encoding="utf-8"))
+        assert declaration["llm_model"] == "stub"
+        assert declaration["groups"]["group_2"]["members"] == ["Alon", "Renat"]
 
 
 class TestTimeoutPath:

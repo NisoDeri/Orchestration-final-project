@@ -13,6 +13,8 @@ from pursuit.report.consensus import (
     CONSENSUS_KEY,
     consensus_scope,
     consensus_signature,
+    mutual_agreement_scope,
+    mutual_agreement_signature,
     sign_consensus,
     verify_consensus,
 )
@@ -56,3 +58,22 @@ def test_scope_is_trimmed_to_agreement_only_fields() -> None:
     assert set(scope["sub_games"][0]) == {"sub_game_number", "roles", "result",
                                           "winner_group", "tie", "score"}
     assert verify_consensus(artifact["settlement"])  # embedded + self-consistent
+
+
+def test_mutual_agreement_scope_omits_tie_field_and_uses_spaced_hash() -> None:
+    result = {
+        "game_id": "anrbj666-vs-nis-yar1",
+        "sub_games": [{"sub_game_number": 1, "roles": {"nis-yar1": "thief",
+                       "anrbj666": "police"}, "result": "capture",
+                       "winner_group": "anrbj666", "tie": False,
+                       "score": {"nis-yar1": 5, "anrbj666": 20}}],
+        "final_result": {"total_score": {"nis-yar1": 5, "anrbj666": 20},
+                         "sub_games_won": {"nis-yar1": 0, "anrbj666": 1},
+                         "ties": 0, "winner_group": "anrbj666",
+                         "series_tie": False},
+    }
+    scope = mutual_agreement_scope(result)
+    assert "tie" not in scope["sub_games"][0]
+    assert mutual_agreement_signature(result) == hashlib.sha256(
+        json.dumps(scope, sort_keys=True, ensure_ascii=False).encode("utf-8")
+    ).hexdigest()

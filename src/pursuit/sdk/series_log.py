@@ -12,6 +12,7 @@ from typing import Any
 from pursuit.constants import GameResult, Role
 from pursuit.domain.scoring import ScoreTable
 from pursuit.peer.audit import SubgameOutcome
+from pursuit.exceptions import ConfigError
 from pursuit.strategy.profiler import OpponentProfiler
 
 
@@ -64,12 +65,18 @@ class LieProfiler:
 def sub_row(number: int, role: Role, my_gid: str, opp_gid: str,
             outcome: SubgameOutcome) -> dict[str, Any]:
     """One result row (the shape the report-stage result artifact will consume)."""
+    turns = _turns_completed(role, outcome)
     return {"sub_game_number": number,
             "roles": {my_gid: role.value, opp_gid: role.opponent.value},
             "result": outcome.result.value,
             "winner_role": None if outcome.winner is None else outcome.winner.value,
             "score": {my_gid: outcome.scores[role], opp_gid: outcome.scores[role.opponent]},
-            "steps": outcome.steps, "game_uid": outcome.game_uid,
+            "steps": outcome.steps, "turns_completed": turns,
+            "step_count_convention": _STEP_COUNT_CONVENTION,
+            "end_state_digest": _outcome_attr(outcome, "end_state_digest", None),
+            "digest_match": _digest_match(outcome),
+            "game_uid": outcome.game_uid,
+            "opponent_identity": dict(_outcome_attr(outcome, "opponent_identity", {}) or {}),
             "audit": {key: outcome.audit[key] for key in
                       ("passed", "forgery", "opponent_received", "failed_steps")}}
 
@@ -77,12 +84,18 @@ def sub_row(number: int, role: Role, my_gid: str, opp_gid: str,
 def log_document(number: int, role: Role, my_gid: str,
                  outcome: SubgameOutcome) -> dict[str, Any]:
     """Minimal replayable per-sub-game log: summary + the revealed sealed chain."""
+    turns = _turns_completed(role, outcome)
     return {"summary": {"sub_game_number": number, "group_id": my_gid, "role": role.value,
                         "opponent_group_id": outcome.opponent_group,
+                        "opponent_identity": dict(_outcome_attr(outcome, "opponent_identity", {}) or {}),
                         "game_id": outcome.game_id, "game_uid": outcome.game_uid,
                         "result": outcome.result.value,
                         "winner_role": None if outcome.winner is None else outcome.winner.value,
-                        "steps": outcome.steps, "audit": outcome.audit},
+                        "steps": outcome.steps, "turns_completed": turns,
+                        "step_count_convention": _STEP_COUNT_CONVENTION,
+                        "end_state_digest": _outcome_attr(outcome, "end_state_digest", None),
+                        "digest_match": _digest_match(outcome),
+                        "audit": outcome.audit},
             "records": outcome.records}
 
 
@@ -90,6 +103,49 @@ def write_json(path: Path, data: dict[str, Any]) -> None:
     """Emit ``data`` as pretty UTF-8 JSON, creating parent dirs as needed."""
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+_STEP_COUNT_CONVENTION = (
+    "steps is this peer's own valid-turn counter, including terminal concession/survival "
+    "records when this peer emits them. turns_completed is the last step number emitted by "
+    "the winning role; on technical/tie outcomes it is the max revealed step."
+)
+
+
+def _outcome_attr(outcome: Any, name: str, default: Any) -> Any:
+    return getattr(outcome, name, default)
+
+
+def _last_step(records: Any) -> int:
+    values: list[int] = []
+    for record in records or []:
+        payload = record.get("payload", {}) if isinstance(record, dict) else {}
+        try:
+            values.append(int(payload.get("step", 0) or 0))
+        except Exception:  # noqa: BLE001
+            pass
+    return max(values, default=0)
+
+
+def _turns_completed(role: Role, outcome: Any) -> int:
+    own_last = _last_step(_outcome_attr(outcome, "records", [])) or int(
+        _outcome_attr(outcome, "steps", 0) or 0)
+    their_records = (_outcome_attr(outcome, "audit", {}) or {}).get("their_records", [])
+    their_last = _last_step(their_records)
+    winner = _outcome_attr(outcome, "winner", None)
+    if winner is role:
+        return own_last
+    if winner is role.opponent:
+        return their_last or max(0, own_last - (1 if role is Role.THIEF else 0))
+    return max(own_last, their_last)
+
+
+def _digest_match(outcome: Any) -> bool | None:
+    digest = _outcome_attr(outcome, "end_state_digest", None)
+    their = (_outcome_attr(outcome, "audit", {}) or {}).get("their_end_state_digest")
+    if digest and their:
+        return digest == their
+    return None
 
 
 def _opponent(summary: dict[str, Any], my_gid: str) -> str:
@@ -137,7 +193,12 @@ def _row_from_log(config: Any, doc: dict[str, Any], my_gid: str, opp_gid: str) -
         "winner_role": None if winner is None else winner.value,
         "score": {my_gid: by_role[role], opponent: by_role[role.opponent]},
         "steps": int(summary.get("steps", 0) or 0),
+        "turns_completed": int(summary.get("turns_completed", summary.get("steps", 0)) or 0),
+        "step_count_convention": summary.get("step_count_convention", _STEP_COUNT_CONVENTION),
+        "end_state_digest": summary.get("end_state_digest"),
+        "digest_match": summary.get("digest_match"),
         "game_uid": str(summary.get("game_uid", "")),
+        "opponent_identity": dict(summary.get("opponent_identity", {}) or {}),
         "audit": {
             "passed": bool((summary.get("audit") or {}).get("passed", False)),
             "forgery": bool((summary.get("audit") or {}).get("forgery", False)),
@@ -187,13 +248,25 @@ def emit_artifacts(config: Any, summary: dict[str, Any], logs: list[dict[str, An
             counted = 0
         opp = _opponent(summary, my_gid)
         summary, logs = _merged_summary(config, summary, logs, out_dir, my_gid, opp)
+        artifact_sysinfo = dict(sysinfo)
+        try:
+            artifact_sysinfo.setdefault("llm_model", config.private("trash_talk.model"))
+            artifact_sysinfo.setdefault("llm_provider", config.private("trash_talk.provider"))
+        except ConfigError:
+            pass
         result = build_result_artifact(summary, my_gid, opp)
         game_id, game_uid = result["game_id"], result["game_uid"]
         subs = list(summary.get("sub_games", []))
+        opponent_identity = next((dict(sub.get("opponent_identity", {}) or {})
+                                  for sub in subs if sub.get("opponent_identity")), {})
+        try:
+            mcp_servers = config.private("game.mcp_servers")
+        except ConfigError:
+            mcp_servers = {}
         declaration = build_declaration(
-            sysinfo, my_gid, config.private("game.members"), github_commit, counted,
+            artifact_sysinfo, my_gid, config.private("game.members"), github_commit, counted,
             base64.b64encode(keypair[1]).decode("ascii"), config.private("game.repos"),
-            opp, game_id, game_uid, len(subs))
+            opp, game_id, game_uid, len(subs), opponent_identity, mcp_servers)
         sha, terms = config.config_sha256(), build_terms(config)
         configs = [build_config_artifact(sha, terms, game_id, game_uid,
                                          int(sub.get("sub_game_number", i + 1)))
@@ -211,11 +284,38 @@ def maybe_email(config: Any, summary: dict[str, Any], result: dict[str, Any]) ->
     try:
         if not bool(config.private("email.enabled")):
             return
+        try:
+            expected = int(config.game("network_and_league.num_games"))
+        except Exception:  # noqa: BLE001
+            expected = int(summary.get("num_sub_games", 0) or 0)
+        if int(result.get("num_sub_games", 0) or 0) < expected:
+            return
         from pursuit.infra.email import GmailSender
         from pursuit.infra.gatekeeper import Gatekeeper
 
-        subject = f"pursuit result {summary.get('game_id', '')}"
+        subject = _report_subject(result)
+        recipient = _private_default(config, "email.recipient", None)
+        sender = _private_default(config, "email.sender", None)
+        credentials_dir = _private_default(config, "email.credentials_dir", "secrets")
         Gatekeeper.from_config(config, "email").execute(
-            GmailSender().send_result, subject, result)  # result = the canonical artifact dict
+            GmailSender(Path(credentials_dir) / "token.json",
+                        Path(credentials_dir) / "smtp.json").send_result,
+            subject, result, recipient, sender)  # result = the canonical artifact dict
     except Exception:  # noqa: BLE001 — a send failure must NEVER crash the series
         pass
+
+
+def _private_default(config: Any, key_path: str, default: Any) -> Any:
+    try:
+        return config.private(key_path)
+    except Exception:  # noqa: BLE001
+        return default
+
+
+def _report_subject(result: dict[str, Any]) -> str:
+    game_id = str(result.get("game_id", ""))
+    final = dict(result.get("final_result", {}) or {})
+    totals = dict(final.get("total_score", {}) or {})
+    verdict = "series_tie" if final.get("series_tie") else f"winner={final.get('winner_group')}"
+    score = " ".join(f"{gid}:{totals[gid]}" for gid in sorted(totals))
+    return f"P2P league SERIES result - {game_id} - {verdict} - {score}"

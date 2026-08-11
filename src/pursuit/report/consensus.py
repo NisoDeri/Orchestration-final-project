@@ -20,6 +20,7 @@ from typing import Any
 CONSENSUS_KEY = "חתימת_קונסנזוס_משותפת"
 #: The only per-sub-game fields two honest teams must agree on (SPEC §6 scope).
 _ROW_KEYS = ("sub_game_number", "roles", "result", "winner_group", "tie", "score")
+_MUTUAL_ROW_KEYS = ("sub_game_number", "roles", "result", "winner_group", "score")
 _AGG_KEYS = ("total_score", "sub_games_won", "ties", "winner_group", "series_tie")
 
 
@@ -55,6 +56,22 @@ def consensus_scope(result: Mapping[str, Any]) -> dict[str, Any]:
         "sub_games": [{key: row.get(key) for key in _ROW_KEYS}
                       for row in result.get("sub_games", [])],
     }
+
+
+def mutual_agreement_scope(result: Mapping[str, Any]) -> dict[str, Any]:
+    """Outcome-only agreement hash scope; intentionally omits the row ``tie`` field."""
+    aggregate = result.get("final_result", {})
+    return {
+        "game_id": result.get("game_id"),
+        "aggregate": {key: aggregate.get(key) for key in _AGG_KEYS},
+        "sub_games": [{key: row.get(key) for key in _MUTUAL_ROW_KEYS}
+                      for row in result.get("sub_games", [])],
+    }
+
+
+def mutual_agreement_signature(result: Mapping[str, Any]) -> str:
+    """SHA-256 over the spaced symmetric outcome scope both teams independently derive."""
+    return hashlib.sha256(consensus_bytes(mutual_agreement_scope(result))).hexdigest()
 
 
 def settlement(result: Mapping[str, Any]) -> dict[str, Any]:

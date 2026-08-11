@@ -48,12 +48,20 @@ class _RateLimiter:
         return True
 
 
-def _mime(subject: str, text: str, data: dict[str, Any]) -> MIMEMultipart:
+def _mime(
+    subject: str,
+    text: str,
+    data: dict[str, Any],
+    sender: str | None = None,
+    filename: str = "result.json",
+) -> MIMEMultipart:
     msg = MIMEMultipart()
     msg["Subject"] = subject
+    if sender:
+        msg["From"] = sender
     msg.attach(MIMEText(text, "plain", "utf-8"))
     att = MIMEApplication(json.dumps(data, indent=2, ensure_ascii=False).encode(), _subtype="json")
-    att.add_header("Content-Disposition", "attachment", filename="result.json")
+    att.add_header("Content-Disposition", "attachment", filename=filename)
     msg.attach(att)
     return msg
 
@@ -76,6 +84,7 @@ class GmailSender:
         subject: str,
         body_dict: dict[str, Any],
         to: str | None = None,
+        sender: str | None = None,
     ) -> dict[str, Any]:
         """Send a match-result email. Returns ``{"sent": bool, "reason": str}``."""
         if not self._rl.allow():
@@ -83,12 +92,9 @@ class GmailSender:
             return {"sent": False, "reason": "rate_limit"}
 
         recipient = to or _DEFAULT_TO
-        summary = (
-            f"Result: {body_dict.get('result', '?')} | "
-            f"Steps: {body_dict.get('steps', '?')} | "
-            f"Group: {body_dict.get('group', 'nis-yar1')}"
-        )
-        msg = _mime(subject, f"{summary}\n\n{json.dumps(body_dict, indent=2)}", body_dict)
+        game_id = str(body_dict.get("game_id", "game"))
+        body = json.dumps(body_dict, indent=2, ensure_ascii=False)
+        msg = _mime(subject, body, body_dict, sender, f"result_{game_id}.json")
 
         if _GOOGLE_OK and self._token.exists():
             return self._oauth(msg, recipient)
@@ -132,8 +138,8 @@ class GmailSender:
         import smtplib
 
         try:
-            c = json.loads(self._smtp.read_text(encoding="utf-8"))
-            msg["To"], msg["From"] = to, c["user"]
+            c = json.loads(self._smtp.read_text(encoding="utf-8-sig"))
+            msg["To"], msg["From"] = to, msg.get("From") or c["user"]
             with smtplib.SMTP(
                 c.get("host", "smtp.gmail.com"), int(c.get("port", 587)), timeout=30
             ) as s:

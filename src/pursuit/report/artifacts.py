@@ -13,7 +13,7 @@ from collections.abc import Mapping, Sequence
 from typing import Any
 
 from pursuit.report.artifacts_io import write_artifacts
-from pursuit.report.consensus import settlement
+from pursuit.report.consensus import mutual_agreement_signature, settlement
 from pursuit.report.schema import (
     DEFAULT_TIMEZONE,
     SCHEMA_CONFIG,
@@ -39,8 +39,17 @@ def build_declaration(sysinfo: Mapping[str, Any], group_id: str,
                       members: Sequence[str], github_commit: str, counted_games: int,
                       public_key_b64: str, repos: Mapping[str, str],
                       opponent_group_id: str = "", game_id: str = "",
-                      game_uid: str = "", num_sub_games: int = 0) -> dict[str, Any]:
+                      game_uid: str = "", num_sub_games: int = 0,
+                      opponent_identity: Mapping[str, Any] | None = None,
+                      mcp_servers: Mapping[str, str] | None = None) -> dict[str, Any]:
     """Template 1: static pre-game declaration for the whole series (both group blocks)."""
+    model = sysinfo.get("model") or sysinfo.get("llm_model") or sysinfo.get("trash_talk_model")
+    group_1 = {"group_id": group_id, "members": list(members), "repos": dict(repos)}
+    if mcp_servers:
+        group_1["mcp_servers"] = dict(mcp_servers)
+    if model:
+        group_1["llm_model"] = model
+    group_2 = _opponent_group(opponent_group_id, opponent_identity)
     return {
         "_schema": SCHEMA_DECLARATION,
         "schema_version": SCHEMA_VERSION,
@@ -48,9 +57,7 @@ def build_declaration(sysinfo: Mapping[str, Any], group_id: str,
         "game_id": game_id,
         "game_uid": game_uid,
         "num_sub_games": num_sub_games,
-        "groups": {"group_1": {"group_id": group_id, "members": list(members),
-                               "repos": dict(repos)},
-                   "group_2": {"group_id": opponent_group_id}},
+        "groups": {"group_1": group_1, "group_2": group_2},
         "links": links(game_id),
         "group_id": group_id,
         "members": list(members),
@@ -58,10 +65,22 @@ def build_declaration(sysinfo: Mapping[str, Any], group_id: str,
         "counted_games": counted_games,
         "public_key_b64": public_key_b64,
         "repos": dict(repos),
-        "llm_model": sysinfo.get("model") or sysinfo.get("llm_model"),
+        "llm_model": model,
+        "llm_provider": sysinfo.get("llm_provider"),
         "os": sysinfo.get("os"),
         "hardware_spec": hardware_spec(sysinfo),
     }
+
+
+def _opponent_group(group_id: str, identity: Mapping[str, Any] | None) -> dict[str, Any]:
+    """Declaration-safe projection of the peer's handshake identity block."""
+    allowed = (
+        "group_id", "group_name", "members", "repos", "mcp_servers", "llm_model",
+        "ed25519_public_key", "counted_games_so_far",
+    )
+    group = {key: identity[key] for key in allowed if identity and key in identity}
+    group["group_id"] = str(group.get("group_id") or group_id)
+    return group
 
 
 def build_config_artifact(config_sha256: str, terms: Mapping[str, Any], game_id: str = "",
@@ -110,7 +129,6 @@ def build_result_artifact(series_summary: Mapping[str, Any], group_id: str,
             wins[row["winner_group"]] += 1
     tokens_total = {gid: sum(row["tokens"].get(gid, 0) for row in rows)
                     for gid in group_ids}
-    mutual_sha = str(series_summary.get("config_sha256", ""))
     artifact = {
         "_schema": SCHEMA_RESULT,
         "schema_version": SCHEMA_VERSION,
@@ -131,10 +149,11 @@ def build_result_artifact(series_summary: Mapping[str, Any], group_id: str,
             "tokens_total_series": tokens_total,
         },
         "mutual_agreement": {
-            "sha256": mutual_sha,
+            "sha256": "",
             "confirmed": all(row["audit"]["log_verified"] for row in rows),
         },
     }
+    artifact["mutual_agreement"]["sha256"] = mutual_agreement_signature(artifact)
     # kit §6 CORE: the cross-team settlement consensus (spaced sig, sign-then-insert).
     artifact["settlement"] = settlement(artifact)
     return artifact

@@ -44,6 +44,7 @@ class SurvivorThiefBrain(BrainBase):
         decoy_enabled: bool = False,  # CREATIVITY-DESIGN E3 — DEFAULT OFF
         decoy_margin: int = 4,  # min flee distance before we spend tempo on misdirection
         recent_window: int = 4,
+        jitter_epsilon: float = 0.0,
     ) -> None:
         super().__init__(talk, rng)
         self.w_dist = float(w_dist)
@@ -55,6 +56,7 @@ class SurvivorThiefBrain(BrainBase):
         self.decoy_enabled = bool(decoy_enabled)
         self.decoy_margin = int(decoy_margin)
         self.recent_window = max(0, int(recent_window))
+        self.jitter_epsilon = max(0.0, float(jitter_epsilon))
         self._opponent_charges = 0  # refreshed every _decide_move from barriers_max
         self._recent_positions: list[Cell] = []
         self._last_step_seen = -1
@@ -94,13 +96,22 @@ class SurvivorThiefBrain(BrainBase):
             if direction is not Direction.STAY and cell in self._recent_positions:
                 recency = len(self._recent_positions) - self._recent_positions.index(cell)
                 value -= self.w_recent * recency
-            if self._opponent_charges > 0 and self._exits(board, cell, barriers) < (
-                self.jail_min_mobility
-            ):
+            if direction is not Direction.STAY and self._trap_risky(board, cell, barriers):
                 value -= ban
             return value
 
-        best = max(moves, key=score)  # ties -> move_set order
+        if self.jitter_epsilon > 0:
+            scored = [(score(move), move) for move in moves]
+            best_score = max(value for value, _move in scored)
+            near_best = [
+                move
+                for value, move in scored
+                if best_score - value <= self.jitter_epsilon
+                and (move[0] is Direction.STAY or not self._trap_risky(board, move[1], barriers))
+            ]
+            best = self._jitter_choice(near_best) if near_best else max(moves, key=score)
+        else:
+            best = max(moves, key=score)  # ties -> move_set order
         current = board.bfs_distance(state.position, threat, barriers)
         best_distance = board.bfs_distance(best[1], threat, barriers)
         current_distance = far if current is None else current
@@ -131,9 +142,7 @@ class SurvivorThiefBrain(BrainBase):
             distance_value = far if distance is None else distance
             if distance_value < current_distance:
                 continue
-            if self._opponent_charges > 0 and self._exits(board, cell, barriers) < (
-                self.jail_min_mobility
-            ):
+            if self._trap_risky(board, cell, barriers):
                 continue
             candidates.append((direction, cell))
         if not candidates:
@@ -148,7 +157,9 @@ class SurvivorThiefBrain(BrainBase):
             recent = 0 if cell in self._recent_positions else 1
             return (distance_value, fresh, recent, mobility)
 
-        return max(candidates, key=rank)
+        ranked = [(rank(move), move) for move in candidates]
+        best_rank = max(value for value, _move in ranked)
+        return self._jitter_choice([move for value, move in ranked if value == best_rank])
 
     def _remember_position(self, position: Cell, step_number: int) -> None:
         """Maintain a short per-game trail so equal scores do not become loops."""
@@ -165,3 +176,16 @@ class SurvivorThiefBrain(BrainBase):
     def _exits(board: Any, cell: Cell, barriers: set[Cell]) -> int:
         """Post-move mobility: how many real (non-STAY) steps remain from ``cell``."""
         return sum(1 for d, _c in board.legal_moves(cell, barriers) if d is not Direction.STAY)
+
+    def _trap_risky(self, board: Any, cell: Cell, barriers: set[Cell]) -> bool:
+        """True when the cop can still seal every real exit from this cell."""
+        exits = self._exits(board, cell, barriers)
+        sealable_exits = max(2, self.jail_min_mobility)
+        return self._opponent_charges >= exits and exits <= sealable_exits
+
+    def _jitter_choice(self, moves: list[tuple[Direction, Cell]]) -> tuple[Direction, Cell]:
+        """Private-rng tie break so equally safe routes stop repeating exactly."""
+        if len(moves) <= 1:
+            return moves[0]
+        self._random_move = True
+        return moves[int(self.rng.random() * len(moves)) % len(moves)]

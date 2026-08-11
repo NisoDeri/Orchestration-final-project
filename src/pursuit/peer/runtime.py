@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from hashlib import sha256
+import json
 import queue
 import time
 from typing import Any
@@ -67,7 +69,8 @@ class PeerRuntime:
             self.role, barriers_max=game(f"{movement}.max_barriers"),
             survival_threshold=game(f"{movement}.survival_threshold"),
             hint_max_words=game("world.hint_max_words"), setting=game("world.map_area"),
-            brain_deadline=float(config.private("network.brain_deadline_seconds")))
+            brain_deadline=float(config.private("network.brain_deadline_seconds")),
+            model=str(config.private("trash_talk.model")))
         self.turn_timeout = float(config.private("network.turn_timeout_seconds"))
         self.audit_timeout = float(config.private("network.audit_send_timeout_seconds"))
 
@@ -105,11 +108,16 @@ class PeerRuntime:
         if audit["forgery"]:
             result, winner = GameResult.TECHNICAL_LOSS, None  # provable forgery (A9a)
         self.fsm.advance(State.DONE)
+        records = self.log.audit_reveal()
         return SubgameOutcome(
             result=result, winner=winner, scores=self.table.score_subgame(result, winner),
-            audit=audit, records=self.log.audit_reveal(), steps=self.state.step_number,
+            audit=audit, records=records, steps=self.state.step_number,
+            end_state_digest=_end_state_digest(
+                self.role, result, winner, records, audit.get("their_records"),
+                self.state.barriers, self.state.step_number, self.handler.last_step),
             game_id=self.handshake.game_id, game_uid=self.handshake.game_uid,
-            opponent_group=str(self.handshake.opponent_identity.get("group_id", "")))
+            opponent_group=str(self.handshake.opponent_identity.get("group_id", "")),
+            opponent_identity=dict(self.handshake.opponent_identity))
 
     def _turn_loop(self) -> tuple[GameResult, Role | None]:
         response: dict[str, Any] | None = None  # claim_response due on MY next message
@@ -148,3 +156,52 @@ class PeerRuntime:
             if (processed.captured is None and self.opponent is Role.POLICE
                     and processed.step >= self.max_moves):
                 return (GameResult.SURVIVAL, Role.THIEF)  # THEIR move ceiling is spent
+
+
+def _end_state_digest(role: Role, result: GameResult, winner: Role | None,
+                      records: list[dict[str, Any]], their_records: Any,
+                      barriers: set[tuple[int, int]], own_steps: int,
+                      their_steps: int) -> str:
+    """Symmetric compact end-state hash agreed for counted-game digest comparison."""
+    positions = {
+        role.value: _last_position(records),
+        role.opponent.value: _last_position(their_records),
+    }
+    state = {
+        "positions": {
+            "police": positions.get(Role.POLICE.value),
+            "thief": positions.get(Role.THIEF.value),
+        },
+        "barriers": [list(cell) for cell in sorted(barriers)],
+        "turns_completed": _digest_turns_completed(role, winner, own_steps, their_steps),
+        "outcome": result.value,
+    }
+    return sha256(json.dumps(state, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
+
+
+def _last_position(records: Any) -> list[int] | None:
+    latest_step = -1
+    latest_position: list[int] | None = None
+    for record in records or []:
+        payload = record.get("payload", {}) if isinstance(record, dict) else {}
+        position = payload.get("position")
+        if not (isinstance(position, list) and len(position) == 2):
+            continue
+        if not all(isinstance(value, int) and not isinstance(value, bool) for value in position):
+            continue
+        try:
+            step = int(payload.get("step", 0) or 0)
+        except Exception:  # noqa: BLE001
+            step = 0
+        if step >= latest_step:
+            latest_step, latest_position = step, list(position)
+    return latest_position
+
+
+def _digest_turns_completed(role: Role, winner: Role | None,
+                            own_steps: int, their_steps: int) -> int:
+    if winner is role:
+        return int(own_steps)
+    if winner is role.opponent:
+        return int(their_steps) or max(0, int(own_steps) - (1 if role is Role.THIEF else 0))
+    return max(int(own_steps), int(their_steps))
