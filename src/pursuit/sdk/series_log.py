@@ -292,10 +292,7 @@ def emit_artifacts(config: Any, summary: dict[str, Any], logs: list[dict[str, An
             counted = int(config.private("game.counted_games_so_far"))
         except Exception:  # noqa: BLE001
             counted = 0
-        try:  # OFFICIAL counted series? (+1 counter, App.F diversity reward) — friendlies: False
-            is_counted_game = bool(config.private("game.counted"))
-        except Exception:  # noqa: BLE001
-            is_counted_game = False
+        is_counted_game = _game_mode(config) == "counted"  # +1 counter + App.F diversity
         opp = _opponent(summary, my_gid)
         summary, logs = _merged_summary(config, summary, logs, out_dir, my_gid, opp)
         artifact_sysinfo = dict(sysinfo)
@@ -338,6 +335,27 @@ def emit_artifacts(config: Any, summary: dict[str, Any], logs: list[dict[str, An
         return []
 
 
+def _game_mode(config: Any) -> str:
+    """The friendly/counted mode (private ``game.mode``, default ``friendly``).
+
+    ONE switch drives everything counted-vs-friendly: the report recipient and the
+    +1 counter / diversity reward. Default friendly is the SAFE default — a report can
+    only reach the lecturer when mode is explicitly ``counted``.
+    """
+    mode = str(_private_default(config, "game.mode", "friendly")).strip().lower()
+    return "counted" if mode == "counted" else "friendly"
+
+
+def _mode_recipient(config: Any) -> Any:
+    """Report recipient for the current mode: friendly -> both teams' inboxes; counted ->
+    the lecturer alone. Mode-specific keys win; ``email.recipient`` is the legacy fallback."""
+    if _game_mode(config) == "counted":
+        return _private_default(config, "email.recipient_counted",
+                                _private_default(config, "email.recipient", None))
+    return _private_default(config, "email.recipient_friendly",
+                            _private_default(config, "email.recipient", None))
+
+
 def maybe_email(config: Any, summary: dict[str, Any], result: dict[str, Any]) -> None:
     """Opt-in (private ``email.enabled``): send the result artifact via the email Gatekeeper."""
     try:
@@ -353,7 +371,7 @@ def maybe_email(config: Any, summary: dict[str, Any], result: dict[str, Any]) ->
         from pursuit.infra.gatekeeper import Gatekeeper
 
         subject = _report_subject(result)
-        recipient = _private_default(config, "email.recipient", None)
+        recipient = _mode_recipient(config)
         sender = _private_default(config, "email.sender", None)
         credentials_dir = _private_default(config, "email.credentials_dir", "secrets")
         Gatekeeper.from_config(config, "email").execute(

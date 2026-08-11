@@ -135,6 +135,24 @@ class ConfigManager:
         """Dotted-path read from the private game.toml."""
         return _lookup(self._private, key_path, GAME_TOML)
 
+    def set_private(self, key_path: str, value: Any) -> None:
+        """Set a private (game.toml) value in memory, creating parents as needed.
+
+        The runtime friendly/counted MODE selector: ``--mode`` writes ``game.mode`` here so
+        one switch flips both the report recipient (friendly inboxes vs the lecturer) and the
+        counted counters/diversity — private, local, never on the wire, so it can never touch
+        the signed terms or game_uid.
+        """
+        parts = key_path.split(".")
+        node: dict[str, Any] = self._private
+        for part in parts[:-1]:
+            child = node.get(part)
+            if not isinstance(child, dict):
+                child = {}
+                node[part] = child
+            node = child
+        node[parts[-1]] = value
+
     def service_limits(self, service: str) -> dict[str, Any]:
         """Gatekeeper limits block for one service (gmail / ollama / ...)."""
         return _lookup(self._rate_limits, service, RATE_LIMITS_JSON, label="service")

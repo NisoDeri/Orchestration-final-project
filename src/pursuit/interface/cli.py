@@ -50,6 +50,10 @@ def build_parser() -> argparse.ArgumentParser:
                       help="per-opponent scent model, agreed out-of-band (NOT a wire term, "
                            "so uid is unchanged): reference=subtractive_chebyshev_v1 (kit CORE, "
                            "our strength) | multiplicative_book_v1 (book/Gaussian, e.g. anrbj666)")
+    peer.add_argument("--mode", default=None, choices=["friendly", "counted"],
+                      help="friendly (report to both teams' inboxes, uncounted) or counted "
+                           "(report to the LECTURER alone, +1 counter + diversity reward). "
+                           "Default: the config's game.mode (shipped safe default: friendly)")
     lab = commands.add_parser("lab", help="paired-seed self-play / agent-vs-agent lab (D7)")
     lab.add_argument("--games", type=int, required=True, help="number of paired seeds")
     lab.add_argument("--seed", type=int, required=True, help="base seed")
@@ -79,7 +83,7 @@ def _run_peer(args: argparse.Namespace) -> dict:
         return run_live(config_dir, args.role)
     return run_peer(config_dir, args.role, num_games=args.games,
                     fake_opponent=args.fake_opponent, alternate=not args.fixed_role,
-                    scent_dialect=args.scent_dialect)
+                    scent_dialect=args.scent_dialect, mode=args.mode)
 
 
 def _run_lab(args: argparse.Namespace) -> dict:
