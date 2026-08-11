@@ -163,6 +163,15 @@ def test_police_completes_corner_jail_from_one_cell_away() -> None:
     assert (decision.move_type, decision.direction) == (MoveType.BARRIER, Direction.E)
 
 
+def test_police_stages_beside_last_corner_exit_instead_of_wasting_wall() -> None:
+    state = make_state((5, 4), barriers={(4, 5), (5, 6)})
+    state.my_barriers = 2
+    decision = police(close_barrier_p=0.35).decide(
+        state, FakeBelief((6, 6), p=0.4), "", "", MAX_BARRIERS
+    )
+    assert (decision.move_type, decision.direction) == (MoveType.MOVE, Direction.S)
+
+
 def test_police_finisher_respects_barrier_quota() -> None:
     state = make_state((3, 3))
     state.my_barriers = MAX_BARRIERS  # quota spent -> finisher impossible, keep chasing

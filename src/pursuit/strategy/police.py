@@ -81,6 +81,9 @@ class InterceptorPoliceBrain(BrainBase):
             jail = self._jail_completion(board, pos, target, barriers, options, belief)
             if jail is not None:
                 return (MoveType.BARRIER, _direction_toward(pos, jail))
+            staging = self._jail_staging_move(board, moves, target, barriers, belief)
+            if staging is not None:
+                return (MoveType.MOVE, staging)
             lane = self._tempo_lane(board, pos, target, barriers, options)
             if lane is not None:
                 return (MoveType.BARRIER, _direction_toward(pos, lane))
@@ -175,6 +178,43 @@ class InterceptorPoliceBrain(BrainBase):
                 if not remaining:
                     return cell
         return None
+
+    def _jail_staging_move(
+        self, board: Any, moves: list[tuple[Direction, Cell]], target: Cell,
+        barriers: set[Cell], belief: BeliefLike
+    ) -> Direction | None:
+        """Move beside the last exit of a corner camper so next turn can seal it."""
+        if mode_probability(belief) < self.close_barrier_p or not self._edge_or_corner(board, target):
+            return None
+        exits = [
+            cell for direction, cell in board.legal_moves(target, barriers)
+            if direction is not Direction.STAY
+        ]
+        if len(exits) != 1:
+            return None
+        last_exit = exits[0]
+        candidates = [
+            (direction, cell) for direction, cell in moves
+            if direction is not Direction.STAY and last_exit in barrier_options(board, cell, barriers)
+        ]
+        if not candidates:
+            return None
+        dr = target[0] - last_exit[0]
+        dc = target[1] - last_exit[1]
+        line_cell = (last_exit[0] - dr, last_exit[1] - dc)
+
+        def rank(move: tuple[Direction, Cell]) -> tuple[int, int, int, Cell]:
+            _direction, cell = move
+            exit_distance = board.bfs_distance(cell, last_exit, barriers)
+            target_distance = board.bfs_distance(cell, target, barriers)
+            return (
+                0 if cell == line_cell else 1,
+                exit_distance if exit_distance is not None else board.size * board.size,
+                target_distance if target_distance is not None else board.size * board.size,
+                cell,
+            )
+
+        return min(candidates, key=rank)[0]
 
     def _pick_move(
         self, moves: list[tuple[Direction, Cell]], state: Any, belief: BeliefLike
