@@ -64,8 +64,9 @@ retry_interval_seconds = 1.0
 audit_send_timeout_seconds = 10
 
 [email]
-recipient = "rmisegal+uoh26finalgame@gmail.com"
-enabled = false
+recipient = "imreeyal.copthief@gmail.com, imree.c@gmail.com, nissimderi123@gmail.com"
+sender = "nissimderi123@gmail.com"
+enabled = true
 credentials_dir = "secrets"    # git-ignored; HW6 OAuth send-only token
 
 [paths]

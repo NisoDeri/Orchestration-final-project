@@ -22,6 +22,15 @@ log = logging.getLogger(__name__)
 _DEFAULT_TO = "rmisegal+uoh26finalgame@gmail.com"
 _MAX_PER_HOUR = 6
 
+
+def _recipient_list(to: str) -> list[str]:
+    """Split a recipient string (one address, or comma-separated many) into envelope addrs.
+
+    A league friendly reports to BOTH teams' inboxes in one send, so ``to`` may carry
+    several comma-separated addresses; SMTP needs them as a real list, not one string.
+    """
+    return [addr.strip() for addr in str(to).split(",") if addr.strip()]
+
 try:
     import google.auth.transport.requests  # type: ignore[import-untyped]
     import google.oauth2.credentials  # type: ignore[import-untyped]
@@ -123,7 +132,7 @@ class GmailSender:
             )
             if creds.expired and creds.refresh_token:
                 creds.refresh(google.auth.transport.requests.Request())
-            msg["To"] = to
+            msg["To"] = ", ".join(_recipient_list(to))  # Gmail API delivers per the To header
             raw = base64.urlsafe_b64encode(msg.as_bytes()).decode()
             _build("gmail", "v1", credentials=creds).users().messages().send(
                 userId="me", body={"raw": raw}
@@ -139,14 +148,15 @@ class GmailSender:
 
         try:
             c = json.loads(self._smtp.read_text(encoding="utf-8-sig"))
-            msg["To"], msg["From"] = to, msg.get("From") or c["user"]
+            addrs = _recipient_list(to)  # envelope recipients — a real list, not one string
+            msg["To"], msg["From"] = ", ".join(addrs), msg.get("From") or c["user"]
             with smtplib.SMTP(
                 c.get("host", "smtp.gmail.com"), int(c.get("port", 587)), timeout=30
             ) as s:
                 s.ehlo()
                 s.starttls()
                 s.login(c["user"], c["password"])
-                s.sendmail(c["user"], [to], msg.as_string())
+                s.sendmail(c["user"], addrs, msg.as_string())
             log.info("email sent via SMTP to %s", to)
             return {"sent": True, "reason": "smtp"}
         except Exception as exc:  # noqa: BLE001
