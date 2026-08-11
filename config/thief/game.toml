@@ -55,7 +55,7 @@ max_lie_rate = 0.35
 
 [network]
 my_port = 8801
-opponent_url = "https://cop-mcp.alon.website/mcp"
+opponent_url = "https://cop.imreeyal.com/mcp"
 turn_timeout_seconds = 180
 brain_deadline_seconds = 15.0   # wall-clock bound on our move (peer/brain_clock); a hung brain -> safe HOLD
 poll_interval_seconds = 0.5
