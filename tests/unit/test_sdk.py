@@ -200,7 +200,9 @@ class TestFakeOpponentSeries:
         assert result["links"]["github"]["anrbj666"] == {"cop": "https://gh/anrbj666/cop"}
         assert result["sub_games"][0]["github_commit"] == {
             "nis-yar1": OUR_FULL_SHA, "anrbj666": THEIR_FULL_SHA}
-        assert result["sub_games"][0]["end_state_digest"] == "digest"
+        # the merge pulled the sibling endpoint's row (result rows are template-trimmed now)
+        assert "end_state_digest" not in result["sub_games"][0]
+        assert result["sub_games"][0]["audit"]["log_verified"] is True
         assert (out_dir / "config_anrbj666-vs-nis-yar1_g01.json").exists()
         assert (out_dir / "config_anrbj666-vs-nis-yar1_g03.json").exists()
         declaration = json.loads((out_dir / "declaration_anrbj666-vs-nis-yar1.json")

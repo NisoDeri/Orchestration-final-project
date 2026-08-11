@@ -13,7 +13,7 @@ from collections.abc import Mapping, Sequence
 from typing import Any
 
 from pursuit.report.artifacts_io import write_artifacts
-from pursuit.report.consensus import mutual_agreement_signature, settlement
+from pursuit.report.consensus import mutual_agreement_signature
 from pursuit.report.schema import (
     DEFAULT_TIMEZONE,
     SCHEMA_CONFIG,
@@ -137,7 +137,7 @@ def build_result_artifact(series_summary: Mapping[str, Any], group_id: str,
         "report_type": "final_game_result",
         "game_id": game_id,
         "game_uid": subs[0].get("game_uid", "") if subs else "",
-        "links": links(game_id, repos_by_group, include_remark=False),
+        "links": links(game_id, repos_by_group, include_remark=True),
         "timezone": DEFAULT_TIMEZONE,
         "groups": list(group_ids),
         "num_sub_games": len(rows),
@@ -163,6 +163,7 @@ def build_result_artifact(series_summary: Mapping[str, Any], group_id: str,
         },
     }
     artifact["mutual_agreement"]["sha256"] = mutual_agreement_signature(artifact)
-    # kit §6 CORE: the cross-team settlement consensus (spaced sig, sign-then-insert).
-    artifact["settlement"] = settlement(artifact)
+    # Reconciliation rides mutual_agreement.sha256 alone — the symmetric-scope hash both teams
+    # derive identically (proven byte-equal vs imreeyal). No separate settlement block: the
+    # course result template is authoritative, and extra keys beyond it are not emitted (§3.17).
     return artifact

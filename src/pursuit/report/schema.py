@@ -136,11 +136,6 @@ def sub_result_row(sub: Mapping[str, Any], game_id: str,
         "tokens": {gid: (sub.get("tokens") or {}).get(gid, 0) for gid in group_ids},
         "score": {gid: sub.get("score", {})[gid] for gid in group_ids
                   if gid in sub.get("score", {})},
-        "steps": sub.get("steps"),
-        "turns_completed": sub.get("turns_completed"),
-        "step_count_convention": sub.get("step_count_convention"),
-        "end_state_digest": sub.get("end_state_digest"),
-        "digest_match": sub.get("digest_match"),
         "log_files": {gid: log_filename(game_id, sub.get("sub_game_number", 0))
                       for gid in group_ids},
         "audit": {"log_verified": bool(audit.get("passed", False)),

@@ -101,7 +101,7 @@ def test_result_totals_match(series_summary: dict) -> None:
     assert result["schema_version"] == "1.1"
     assert result["groups"] == ["nis-yar1", "seg-team"]
     assert result["links"]["github"] == repos
-    assert "_remark" not in result["links"]
+    assert "_remark" in result["links"]  # matches imreeyal's result template
     final = result["final_result"]
     assert final["total_score"] == {"nis-yar1": 25, "seg-team": 5}
     assert final["sub_games_won"] == {"nis-yar1": 2, "seg-team": 0}
@@ -119,9 +119,11 @@ def test_result_totals_match(series_summary: dict) -> None:
     assert [r["result"] for r in rows] == ["capture", "survival"]
     assert rows[0]["winner_group"] == "nis-yar1"
     assert rows[0]["audit"] == {"log_verified": True, "tampered": False}
-    assert rows[0]["steps"] == 8
-    assert rows[0]["turns_completed"] == 8
-    assert rows[0]["end_state_digest"] == "digest-1"
+    # result rows are trimmed to the course template (== imreeyal's rows): no per-side extras
+    for extra in ("steps", "turns_completed", "step_count_convention",
+                  "end_state_digest", "digest_match"):
+        assert extra not in rows[0]
+    assert "settlement" not in result  # no extra top-level block beyond the template (§3.17)
 
 
 def test_result_technical_loss_mapping(series_summary: dict) -> None:

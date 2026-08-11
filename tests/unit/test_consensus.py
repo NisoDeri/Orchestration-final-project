@@ -15,6 +15,7 @@ from pursuit.report.consensus import (
     consensus_signature,
     mutual_agreement_scope,
     mutual_agreement_signature,
+    settlement,
     sign_consensus,
     verify_consensus,
 )
@@ -57,7 +58,10 @@ def test_scope_is_trimmed_to_agreement_only_fields() -> None:
     assert set(scope) == {"game_id", "aggregate", "sub_games"}
     assert set(scope["sub_games"][0]) == {"sub_game_number", "roles", "result",
                                           "winner_group", "tie", "score"}
-    assert verify_consensus(artifact["settlement"])  # embedded + self-consistent
+    # the settlement block is no longer embedded in the result (template conformance, §3.17),
+    # but the builder still signs + verifies a self-consistent consensus scope on demand.
+    assert "settlement" not in artifact
+    assert verify_consensus(settlement(artifact))
 
 
 def test_mutual_agreement_scope_omits_tie_field_and_uses_spaced_hash() -> None:
