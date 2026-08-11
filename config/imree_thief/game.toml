@@ -2,6 +2,7 @@
 version = "0.1.0"
 
 [game]
+counted = true
 group_name = "nis-yar1"
 group_id = "nis-yar1"
 members = ["Nissim Deri", "Yarden Tziar"]
@@ -64,7 +65,7 @@ retry_interval_seconds = 1.0
 audit_send_timeout_seconds = 10
 
 [email]
-recipient = "imreeyal.copthief@gmail.com, imree.c@gmail.com, nissimderi123@gmail.com"
+recipient = "rmisegal+uoh26finalgame@gmail.com"
 sender = "nissimderi123@gmail.com"
 enabled = true
 credentials_dir = "secrets"    # git-ignored; HW6 OAuth send-only token

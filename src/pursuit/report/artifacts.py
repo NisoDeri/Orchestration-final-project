@@ -116,8 +116,15 @@ def build_log_artifact(subgame_log: Mapping[str, Any]) -> dict[str, Any]:
 def build_result_artifact(series_summary: Mapping[str, Any], group_id: str,
                           opponent_group_id: str,
                           repos_by_group: Mapping[str, Mapping[str, str]] | None = None,
-                          counted_games_by_group: Mapping[str, int] | None = None) -> dict[str, Any]:
-    """Template 4: per-sub-game rows + totals + tie + winner over the whole series."""
+                          counted_games_by_group: Mapping[str, int] | None = None,
+                          counted: bool = False) -> dict[str, Any]:
+    """Template 4: per-sub-game rows + totals + tie + winner over the whole series.
+
+    ``counted`` marks this as an OFFICIAL counted series (not a friendly): it adds +1 to
+    each group's ``games_played_including_this`` (this game counts) and, on a counted FIRST
+    meeting, applies the App. F diversity reward (+10) to the winner. Friendlies leave both
+    untouched (raw counts, no reward) — verified against the friendlies that reconciled 3/0.
+    """
     group_ids = sorted([group_id, opponent_group_id])
     game_id = str(series_summary.get("game_id", ""))
     subs = list(series_summary.get("sub_games", []))
@@ -131,6 +138,8 @@ def build_result_artifact(series_summary: Mapping[str, Any], group_id: str,
             wins[row["winner_group"]] += 1
     tokens_total = {gid: sum(row["tokens"].get(gid, 0) for row in rows)
                     for gid in group_ids}
+    winner = series_summary.get("winner")
+    first_meeting = bool(series_summary.get("first_meeting_between_groups", True))
     artifact = {
         "_schema": SCHEMA_RESULT,
         "schema_version": SCHEMA_VERSION,
@@ -150,12 +159,13 @@ def build_result_artifact(series_summary: Mapping[str, Any], group_id: str,
             "series_tie": bool(series_summary.get("tie", False)),
             "tokens_total_series": tokens_total,
             "games_played_including_this": {
-                gid: int((counted_games_by_group or {}).get(gid, 0)) for gid in group_ids
+                gid: int((counted_games_by_group or {}).get(gid, 0)) + (1 if counted else 0)
+                for gid in group_ids
             },
-            "first_meeting_between_groups": bool(
-                series_summary.get("first_meeting_between_groups", True)
-            ),
-            "diversity_reward_applied": dict.fromkeys(group_ids, False),
+            "first_meeting_between_groups": first_meeting,
+            "diversity_reward_applied": {
+                gid: bool(counted and first_meeting and gid == winner) for gid in group_ids
+            },
         },
         "mutual_agreement": {
             "sha256": "",

@@ -292,6 +292,10 @@ def emit_artifacts(config: Any, summary: dict[str, Any], logs: list[dict[str, An
             counted = int(config.private("game.counted_games_so_far"))
         except Exception:  # noqa: BLE001
             counted = 0
+        try:  # OFFICIAL counted series? (+1 counter, App.F diversity reward) — friendlies: False
+            is_counted_game = bool(config.private("game.counted"))
+        except Exception:  # noqa: BLE001
+            is_counted_game = False
         opp = _opponent(summary, my_gid)
         summary, logs = _merged_summary(config, summary, logs, out_dir, my_gid, opp)
         artifact_sysinfo = dict(sysinfo)
@@ -315,7 +319,8 @@ def emit_artifacts(config: Any, summary: dict[str, Any], logs: list[dict[str, An
         repos_by_group = {my_gid: config.private("game.repos")}
         if opponent_identity.get("repos"):
             repos_by_group[opp] = dict(opponent_identity.get("repos", {}))
-        result = build_result_artifact(summary, my_gid, opp, repos_by_group, counted_by_group)
+        result = build_result_artifact(summary, my_gid, opp, repos_by_group, counted_by_group,
+                                       counted=is_counted_game)
         game_id, game_uid = result["game_id"], result["game_uid"]
         declaration = build_declaration(
             artifact_sysinfo, my_gid, config.private("game.members"), github_commit, counted,
