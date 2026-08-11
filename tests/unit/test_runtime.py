@@ -24,7 +24,11 @@ from pursuit.peer.fsm import State
 from pursuit.peer.handshake import Handshake
 from pursuit.peer.inboxes import PeerInboxes
 from pursuit.domain.board import Board
-from pursuit.peer.runtime import PeerRuntime, _end_state_digest_preimage
+from pursuit.peer.runtime import (
+    PeerRuntime,
+    _comparable_end_state_digest,
+    _end_state_digest_preimage,
+)
 from pursuit.shared.config import ConfigManager
 
 SPEC = {"os": "TestOS", "cpu_type": "TestCPU", "cpu_freq_mhz": 1, "cpu_cores": 1,
@@ -272,3 +276,15 @@ def test_end_state_preimage_replays_action_only_opponent_records() -> None:
         '{"barriers":[],"outcome":"capture",'
         '"positions":{"police":[4,6],"thief":[4,6]},"turns_completed":10}'
     )
+    assert _comparable_end_state_digest(GameResult.CAPTURE, preimage) == sha256(
+        preimage.encode("utf-8")
+    ).hexdigest()
+
+
+def test_end_state_digest_is_na_when_opponent_position_missing() -> None:
+    preimage = (
+        '{"barriers":[],"outcome":"capture",'
+        '"positions":{"police":null,"thief":[4,6]},"turns_completed":10}'
+    )
+    assert _comparable_end_state_digest(GameResult.CAPTURE, preimage) is None
+    assert _comparable_end_state_digest(GameResult.TECHNICAL_LOSS, preimage) is None

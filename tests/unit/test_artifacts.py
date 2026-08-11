@@ -94,12 +94,21 @@ def test_config_artifact_lock_and_terms() -> None:
 
 
 def test_result_totals_match(series_summary: dict) -> None:
-    result = build_result_artifact(series_summary, "nis-yar1", "seg-team")
+    repos = {"nis-yar1": {"cop": "https://gh/our-cop"},
+             "seg-team": {"thief": "https://gh/their-thief"}}
+    counted = {"nis-yar1": 0, "seg-team": 2}
+    result = build_result_artifact(series_summary, "nis-yar1", "seg-team", repos, counted)
     assert result["schema_version"] == "1.1"
+    assert result["groups"] == ["nis-yar1", "seg-team"]
+    assert result["links"]["github"] == repos
+    assert "_remark" not in result["links"]
     final = result["final_result"]
     assert final["total_score"] == {"nis-yar1": 25, "seg-team": 5}
     assert final["sub_games_won"] == {"nis-yar1": 2, "seg-team": 0}
     assert final["winner_group"] == "nis-yar1"
+    assert final["games_played_including_this"] == counted
+    assert final["first_meeting_between_groups"] is True
+    assert final["diversity_reward_applied"] == {"nis-yar1": False, "seg-team": False}
     # real token totals summed per group (reference emitted 0) -> fixed
     assert final["tokens_total_series"] == {"nis-yar1": 120, "seg-team": 30}
     # mutual-agreement SHA is the symmetric outcome hash, not the config lock.

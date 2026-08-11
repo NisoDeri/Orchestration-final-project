@@ -114,9 +114,11 @@ def build_log_artifact(subgame_log: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def build_result_artifact(series_summary: Mapping[str, Any], group_id: str,
-                          opponent_group_id: str) -> dict[str, Any]:
+                          opponent_group_id: str,
+                          repos_by_group: Mapping[str, Mapping[str, str]] | None = None,
+                          counted_games_by_group: Mapping[str, int] | None = None) -> dict[str, Any]:
     """Template 4: per-sub-game rows + totals + tie + winner over the whole series."""
-    group_ids = [group_id, opponent_group_id]
+    group_ids = sorted([group_id, opponent_group_id])
     game_id = str(series_summary.get("game_id", ""))
     subs = list(series_summary.get("sub_games", []))
     rows = [sub_result_row(sub, game_id, group_ids) for sub in subs]
@@ -135,7 +137,7 @@ def build_result_artifact(series_summary: Mapping[str, Any], group_id: str,
         "report_type": "final_game_result",
         "game_id": game_id,
         "game_uid": subs[0].get("game_uid", "") if subs else "",
-        "links": links(game_id),
+        "links": links(game_id, repos_by_group, include_remark=False),
         "timezone": DEFAULT_TIMEZONE,
         "groups": list(group_ids),
         "num_sub_games": len(rows),
@@ -147,6 +149,13 @@ def build_result_artifact(series_summary: Mapping[str, Any], group_id: str,
             "winner_group": series_summary.get("winner"),
             "series_tie": bool(series_summary.get("tie", False)),
             "tokens_total_series": tokens_total,
+            "games_played_including_this": {
+                gid: int((counted_games_by_group or {}).get(gid, 0)) for gid in group_ids
+            },
+            "first_meeting_between_groups": bool(
+                series_summary.get("first_meeting_between_groups", True)
+            ),
+            "diversity_reward_applied": dict.fromkeys(group_ids, False),
         },
         "mutual_agreement": {
             "sha256": "",

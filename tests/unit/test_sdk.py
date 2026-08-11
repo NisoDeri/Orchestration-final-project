@@ -23,6 +23,8 @@ from pursuit.shared.config import ConfigManager
 from pursuit.constants import Role
 
 GID = "nis-yar1"
+OUR_FULL_SHA = "a" * 40
+THEIR_FULL_SHA = "b" * 40
 SPEC = {"os": "TestOS", "cpu_type": "TestCPU", "cpu_freq_mhz": 1, "cpu_cores": 1,
         "ram_gb": 1.0, "gpu_model": "none", "vram_gb": 0.0}
 
@@ -158,9 +160,14 @@ class TestFakeOpponentSeries:
             winner = Role.POLICE
             scores = {Role.POLICE: 20, Role.THIEF: 5}
             audit = {"passed": True, "forgery": False, "opponent_received": True,
-                     "failed_steps": []}
-            records = [{"payload": {"step": 0, "sub_game_number": 1}, "nonce": "n",
-                        "commit": "c"}]
+                     "failed_steps": [],
+                     "their_records": [
+                         {"payload": {"step": 0, "github_commit": THEIR_FULL_SHA},
+                          "nonce": "n2", "commit": "c2"},
+                     ]}
+            records = [{"payload": {"step": 0, "sub_game_number": 1,
+                                    "github_commit": OUR_FULL_SHA},
+                        "nonce": "n", "commit": "c"}]
             steps = 8
             end_state_digest = "digest"
             game_id = "anrbj666-vs-nis-yar1"
@@ -182,12 +189,17 @@ class TestFakeOpponentSeries:
                    "sub_games": [], "totals": {GID: 0, "anrbj666": 0},
                    "tie": True, "winner": None}
 
-        emit_artifacts(cfg, summary, [second], SPEC, "abc1234", keypair, out_dir)
+        emit_artifacts(cfg, summary, [second], SPEC, OUR_FULL_SHA, keypair, out_dir)
 
         result = json.loads((out_dir / "result_anrbj666-vs-nis-yar1.json")
                             .read_text(encoding="utf-8"))
         assert [row["sub_game_number"] for row in result["sub_games"]] == [1, 3]
         assert result["num_sub_games"] == 2
+        assert result["links"]["github"]["nis-yar1"] == {
+            "cop": "https://x/c", "thief": "https://x/t"}
+        assert result["links"]["github"]["anrbj666"] == {"cop": "https://gh/anrbj666/cop"}
+        assert result["sub_games"][0]["github_commit"] == {
+            "nis-yar1": OUR_FULL_SHA, "anrbj666": THEIR_FULL_SHA}
         assert result["sub_games"][0]["end_state_digest"] == "digest"
         assert (out_dir / "config_anrbj666-vs-nis-yar1_g01.json").exists()
         assert (out_dir / "config_anrbj666-vs-nis-yar1_g03.json").exists()

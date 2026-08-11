@@ -49,10 +49,10 @@ def test_collect_with_failed_probe_reports_unknown_gpu() -> None:
     assert tuple(spec) == EXPECTED_KEYS  # shape survives a dead probe
 
 
-def test_get_git_commit_returns_short_hex_hash_in_this_repo() -> None:
+def test_get_git_commit_returns_full_hex_hash_in_this_repo() -> None:
     commit = get_git_commit(REPO_ROOT)
     assert commit != GIT_COMMIT_UNKNOWN  # OUR artifacts carry the real hash (D9 fix)
-    assert 7 <= len(commit) <= 40
+    assert len(commit) == 40
     assert set(commit) <= set(string.hexdigits.lower())
 
 

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import ast
+from datetime import UTC, datetime
 from hashlib import sha256
 import json
 import queue
@@ -87,6 +88,7 @@ class PeerRuntime:
 
     def run(self) -> SubgameOutcome:
         """Handshake → step-0 seal → thief-first turn loop → mutual audit → outcome."""
+        started_at = datetime.now(UTC).isoformat()
         self.fsm.advance(State.NEGOTIATING)
         if self.handshake is None:  # the series may inject the pre-agreed handshake
             self.handshake = run_handshake(self.transport, AgreementsView(self.inboxes),
@@ -116,14 +118,16 @@ class PeerRuntime:
             self.state.barriers, self.state.step_number, self.handler.last_step,
             self.state.board, tuple(self.config.game("board_and_agents.cop_start")),
             tuple(self.config.game("board_and_agents.thief_start")))
+        ended_at = datetime.now(UTC).isoformat()
         return SubgameOutcome(
             result=result, winner=winner, scores=self.table.score_subgame(result, winner),
             audit=audit, records=records, steps=self.state.step_number,
-            end_state_digest=sha256(digest_preimage.encode("utf-8")).hexdigest(),
+            end_state_digest=_comparable_end_state_digest(result, digest_preimage),
             end_state_digest_preimage=digest_preimage,
             game_id=self.handshake.game_id, game_uid=self.handshake.game_uid,
             opponent_group=str(self.handshake.opponent_identity.get("group_id", "")),
-            opponent_identity=dict(self.handshake.opponent_identity))
+            opponent_identity=dict(self.handshake.opponent_identity),
+            started_at=started_at, ended_at=ended_at)
 
     def _turn_loop(self) -> tuple[GameResult, Role | None]:
         response: dict[str, Any] | None = None  # claim_response due on MY next message
@@ -204,6 +208,25 @@ def _end_state_digest_preimage(role: Role, result: GameResult, winner: Role | No
         "outcome": result.value,
     }
     return json.dumps(state, sort_keys=True, separators=(",", ":"))
+
+
+def _comparable_end_state_digest(result: GameResult, preimage: str) -> str | None:
+    """Hash only complete capture/survival states; incomplete audits remain N/A."""
+    if result not in (GameResult.CAPTURE, GameResult.SURVIVAL):
+        return None
+    try:
+        state = json.loads(preimage)
+    except json.JSONDecodeError:
+        return None
+    positions = state.get("positions") if isinstance(state, dict) else None
+    if not isinstance(positions, dict):
+        return None
+    for role in ("police", "thief"):
+        cell = positions.get(role)
+        if not (isinstance(cell, list) and len(cell) == 2
+                and all(isinstance(v, int) and not isinstance(v, bool) for v in cell)):
+            return None
+    return sha256(preimage.encode("utf-8")).hexdigest()
 
 
 def _start_for(role: Role, cop_start: tuple[int, int] | None,

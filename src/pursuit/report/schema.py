@@ -36,10 +36,8 @@ SCHEMA_LOG = (
     "the declaration; join by game_uid."
 )
 SCHEMA_RESULT = (
-    "Summary and final result for the WHOLE game (all sub-games) between two teams. It "
-    "condenses the per-sub-game logs into a per-group score for every sub-game plus the "
-    "aggregate outcome the lecturer needs for the league standings. Both teams must agree "
-    "on this result and each sends its own copy to the lecturer (book ch9)."
+    "Summary and final result for the WHOLE series between two teams: per-sub-game scores "
+    "+ aggregate; identity lives in the declaration."
 )
 LINKS_REMARK = (
     "These are logical roles, NOT fixed filenames. Each actual file name is derived from "
@@ -65,16 +63,26 @@ def result_filename(game_id: str) -> str:
     return f"result_{game_id}.json"
 
 
-def links(game_id: str) -> dict[str, str]:
+def links(
+    game_id: str,
+    github: Mapping[str, Mapping[str, str]] | None = None,
+    *,
+    include_remark: bool = True,
+) -> dict[str, Any]:
     """Shared links block: logical role -> filename. Config and log keep the literal
     ``g<NN>`` placeholder because ``<NN>`` (sub_game_number) varies per sub-game file."""
-    return {
+    block: dict[str, Any] = {
         "_remark": LINKS_REMARK,
         "declaration": declaration_filename(game_id),
         "config": f"config_{game_id}_g<NN>.json",
         "log": f"log_{game_id}_g<NN>.json",
         "result": result_filename(game_id),
     }
+    if not include_remark:
+        block.pop("_remark", None)
+    if github:
+        block["github"] = {gid: dict(repos) for gid, repos in github.items()}
+    return block
 
 
 _PASSTHROUGH_RESULTS = frozenset({"capture", "survival", "tie"})
@@ -116,13 +124,18 @@ def sub_result_row(sub: Mapping[str, Any], game_id: str,
     result = result_string(sub)
     return {
         "sub_game_number": sub.get("sub_game_number"),
-        "roles": dict(sub.get("roles", {})),
+        "roles": {gid: sub.get("roles", {})[gid] for gid in group_ids
+                  if gid in sub.get("roles", {})},
+        **({"started_at": sub.get("started_at")} if sub.get("started_at") else {}),
+        **({"ended_at": sub.get("ended_at")} if sub.get("ended_at") else {}),
         "result": result,
         "winner_group": winner_group(sub),
         "tie": result == "tie",
-        "github_commit": dict(sub.get("github_commit", {})),
+        "github_commit": {gid: sub.get("github_commit", {})[gid] for gid in group_ids
+                          if gid in sub.get("github_commit", {})},
         "tokens": {gid: (sub.get("tokens") or {}).get(gid, 0) for gid in group_ids},
-        "score": dict(sub.get("score", {})),
+        "score": {gid: sub.get("score", {})[gid] for gid in group_ids
+                  if gid in sub.get("score", {})},
         "steps": sub.get("steps"),
         "turns_completed": sub.get("turns_completed"),
         "step_count_convention": sub.get("step_count_convention"),

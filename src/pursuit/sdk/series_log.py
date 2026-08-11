@@ -66,10 +66,15 @@ def sub_row(number: int, role: Role, my_gid: str, opp_gid: str,
             outcome: SubgameOutcome) -> dict[str, Any]:
     """One result row (the shape the report-stage result artifact will consume)."""
     turns = _turns_completed(role, outcome)
+    roles = {my_gid: role.value, opp_gid: role.opponent.value}
     return {"sub_game_number": number,
-            "roles": {my_gid: role.value, opp_gid: role.opponent.value},
+            "roles": roles,
+            "started_at": _outcome_attr(outcome, "started_at", None),
+            "ended_at": _outcome_attr(outcome, "ended_at", None),
             "result": outcome.result.value,
             "winner_role": None if outcome.winner is None else outcome.winner.value,
+            "github_commit": _github_commit_map(roles, role, outcome.records,
+                                                outcome.audit.get("their_records")),
             "score": {my_gid: outcome.scores[role], opp_gid: outcome.scores[role.opponent]},
             "steps": outcome.steps, "turns_completed": turns,
             "step_count_convention": _STEP_COUNT_CONVENTION,
@@ -91,6 +96,8 @@ def log_document(number: int, role: Role, my_gid: str,
                         "opponent_group_id": outcome.opponent_group,
                         "opponent_identity": dict(_outcome_attr(outcome, "opponent_identity", {}) or {}),
                         "game_id": outcome.game_id, "game_uid": outcome.game_uid,
+                        "started_at": _outcome_attr(outcome, "started_at", None),
+                        "ended_at": _outcome_attr(outcome, "ended_at", None),
                         "result": outcome.result.value,
                         "winner_role": None if outcome.winner is None else outcome.winner.value,
                         "steps": outcome.steps, "turns_completed": turns,
@@ -152,6 +159,32 @@ def _digest_match(outcome: Any) -> bool | None:
     return None
 
 
+def _step0_commit(records: Any) -> str | None:
+    for record in records or []:
+        payload = record.get("payload", {}) if isinstance(record, dict) else {}
+        try:
+            step = int(payload.get("step", -1))
+        except Exception:  # noqa: BLE001
+            step = -1
+        if step == 0:
+            commit = payload.get("github_commit")
+            return str(commit) if commit else None
+    return None
+
+
+def _github_commit_map(
+    roles: dict[str, str],
+    my_role: Role,
+    my_records: Any,
+    their_records: Any,
+) -> dict[str, str]:
+    by_role = {
+        my_role.value: _step0_commit(my_records),
+        my_role.opponent.value: _step0_commit(their_records),
+    }
+    return {gid: by_role[role] for gid, role in roles.items() if by_role.get(role)}
+
+
 def _opponent(summary: dict[str, Any], my_gid: str) -> str:
     return next((g for g in summary.get("totals", {}) if g != my_gid), "opponent")
 
@@ -190,11 +223,20 @@ def _row_from_log(config: Any, doc: dict[str, Any], my_gid: str, opp_gid: str) -
     except Exception:  # noqa: BLE001
         game_result = str(result or GameResult.TECHNICAL_LOSS.value)
     by_role = ScoreTable(config.game("scoring")).score_subgame(game_result, winner)
+    roles = {my_gid: role.value, opponent: role.opponent.value}
     return {
         "sub_game_number": _log_number(doc),
-        "roles": {my_gid: role.value, opponent: role.opponent.value},
+        "roles": roles,
+        "started_at": summary.get("started_at"),
+        "ended_at": summary.get("ended_at"),
         "result": str(result or GameResult.TECHNICAL_LOSS.value),
         "winner_role": None if winner is None else winner.value,
+        "github_commit": _github_commit_map(
+            roles,
+            role,
+            doc.get("records", []),
+            (summary.get("audit") or {}).get("their_records", []),
+        ),
         "score": {my_gid: by_role[role], opponent: by_role[role.opponent]},
         "steps": int(summary.get("steps", 0) or 0),
         "turns_completed": int(summary.get("turns_completed", summary.get("steps", 0)) or 0),
@@ -258,15 +300,23 @@ def emit_artifacts(config: Any, summary: dict[str, Any], logs: list[dict[str, An
             artifact_sysinfo.setdefault("llm_provider", config.private("trash_talk.provider"))
         except ConfigError:
             pass
-        result = build_result_artifact(summary, my_gid, opp)
-        game_id, game_uid = result["game_id"], result["game_uid"]
         subs = list(summary.get("sub_games", []))
         opponent_identity = next((dict(sub.get("opponent_identity", {}) or {})
                                   for sub in subs if sub.get("opponent_identity")), {})
+        counted_by_group = {
+            my_gid: counted,
+            opp: int(opponent_identity.get("counted_games_played",
+                                           opponent_identity.get("counted_games_so_far", 0)) or 0),
+        }
         try:
             mcp_servers = config.private("game.mcp_servers")
         except ConfigError:
             mcp_servers = {}
+        repos_by_group = {my_gid: config.private("game.repos")}
+        if opponent_identity.get("repos"):
+            repos_by_group[opp] = dict(opponent_identity.get("repos", {}))
+        result = build_result_artifact(summary, my_gid, opp, repos_by_group, counted_by_group)
+        game_id, game_uid = result["game_id"], result["game_uid"]
         declaration = build_declaration(
             artifact_sysinfo, my_gid, config.private("game.members"), github_commit, counted,
             base64.b64encode(keypair[1]).decode("ascii"), config.private("game.repos"),
