@@ -36,14 +36,19 @@ SCHEMA_LOG = (
     "the declaration; join by game_uid."
 )
 SCHEMA_RESULT = (
-    "Summary and final result for the WHOLE series between two teams: per-sub-game scores "
-    "+ aggregate; identity lives in the declaration."
+    "Summary and final result for the WHOLE game (all sub-games) between two teams. It "
+    "condenses the per-sub-game logs into a per-group score for every sub-game plus the "
+    "aggregate outcome the lecturer needs to build the league standings. Static team "
+    "metadata (identity, members, repos, MCP, hardware, model) is NOT repeated here — it "
+    "lives in 1-pre-game-declaration.json and is referenced via game_id / group_id. Both "
+    "teams must agree on this result and each sends its own copy to the lecturer (book ch9)."
 )
 LINKS_REMARK = (
-    "These are logical roles, NOT fixed filenames. Each actual file name is derived from "
-    "the game_id so files from different games are never mixed. Match-level files "
+    "These are logical roles, NOT fixed filenames. Each actual file name MUST be derived "
+    "from the game_id so that files from different games are never mixed. Match-level files "
     "(declaration, result) are named <role>_<game_id>.json; per-sub-game files (config, "
-    "log) are named <role>_<game_id>_g<NN>.json where <NN> is the sub_game_number."
+    "log) are named <role>_<game_id>_g<NN>.json where <NN> is the sub_game_number. The "
+    "names below are derived from this report's own game_id."
 )
 
 
@@ -80,8 +85,8 @@ def links(
     }
     if not include_remark:
         block.pop("_remark", None)
-    if github:
-        block["github"] = {gid: dict(repos) for gid, repos in github.items()}
+    if github:  # sorted group order — both teams emit the identical github block
+        block["github"] = {gid: dict(github[gid]) for gid in sorted(github)}
     return block
 
 
