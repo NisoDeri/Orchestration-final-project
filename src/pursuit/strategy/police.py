@@ -46,12 +46,14 @@ class InterceptorPoliceBrain(BrainBase):
         cage_radius: int = 2,  # tempo test trigger distance (v1 stand-in for the cage planner)
         herd_k: int = 4,  # horizon of the thief-escape region we collapse on distance ties
         close_barrier_p: float = 0.35,
+        jitter_epsilon: float = 0.0,  # >0 randomizes among near-best chases (anti-scouting)
     ) -> None:
         super().__init__(talk, rng)
         self.barrier_finisher_p = float(barrier_finisher_p)
         self.cage_radius = int(cage_radius)
         self.herd_k = int(herd_k)
         self.close_barrier_p = float(close_barrier_p)
+        self.jitter_epsilon = max(0.0, float(jitter_epsilon))
 
     def _decide_move(
         self, state: Any, belief: BeliefLike, barriers_max: int
@@ -239,4 +241,11 @@ class InterceptorPoliceBrain(BrainBase):
             )
             return (far if distance is None else distance, escape, -mobility)
 
+        if self.jitter_epsilon > 0:  # anti-scouting: randomize among near-best chases so an
+            ranked = [(rank(m), m) for m in moves]  # opponent can't learn a hard counter
+            best = min(r for r, _m in ranked)
+            near = [m for r, m in ranked if r[0] <= best[0] + self.jitter_epsilon]
+            if len(near) > 1:
+                self._random_move = True
+                return near[int(self.rng.random() * len(near)) % len(near)]
         return min(moves, key=rank)  # final tie -> move_set order (deterministic)
