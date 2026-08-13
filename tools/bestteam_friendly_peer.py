@@ -136,12 +136,14 @@ class BestteamServer:
         inboxes: Inboxes,
         *,
         config_digest: str,
+        step_zero: dict[str, Any],
     ) -> None:
         self.role = role
         self.host = host
         self.port = port
         self.inboxes = inboxes
         self.config_digest = config_digest
+        self.step_zero = dict(step_zero)
         self.mcp = FastMCP(f"nis-yar1-{ROLE_TO_WIRE[role]}-bestteam-adapter")
 
         def negotiate(message: dict | None = None, payload: dict | None = None) -> dict:
@@ -157,7 +159,7 @@ class BestteamServer:
                 "game_count": 6,
                 "role_split": {"thief": [1, 2, 3], "cop": [4, 5, 6]},
                 "readings": {},
-                "step_zero": {},
+                "step_zero": dict(self.step_zero),
             }
 
         def receive_commit(message: dict | None = None, payload: dict | None = None) -> dict:
@@ -771,8 +773,19 @@ def run_block(args: argparse.Namespace, role: str, subgames: list[int]) -> list[
     config.override_game("pheromones.dialect", "multiplicative_book_v1")
     port = 8802 if role == "police" else 8801
     inboxes = Inboxes()
+    step_zero = {
+        "team_name": "nis-yar1",
+        "members": config.private("game.members"),
+        "repos": config.private("game.repos"),
+        "role": ROLE_TO_WIRE[role],
+        "sub_game": subgames[0],
+        "llm_model": config.private("trash_talk.model"),
+        "code_version": config.private("version"),
+        "github_commit": args.github_commit,
+        "hardware": _hardware(),
+    }
     BestteamServer(role, "127.0.0.1", port, inboxes,
-                   config_digest=config.config_sha256()).start()
+                   config_digest=config.config_sha256(), step_zero=step_zero).start()
     time.sleep(1.0)
     client = BestteamClient(args.opponent_url, timeout=args.timeout)
     rows: list[dict[str, Any]] = []
