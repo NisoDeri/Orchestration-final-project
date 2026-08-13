@@ -128,17 +128,36 @@ class Inboxes:
 
 
 class BestteamServer:
-    def __init__(self, role: str, host: str, port: int, inboxes: Inboxes) -> None:
+    def __init__(
+        self,
+        role: str,
+        host: str,
+        port: int,
+        inboxes: Inboxes,
+        *,
+        config_digest: str,
+    ) -> None:
         self.role = role
         self.host = host
         self.port = port
         self.inboxes = inboxes
+        self.config_digest = config_digest
         self.mcp = FastMCP(f"nis-yar1-{ROLE_TO_WIRE[role]}-bestteam-adapter")
 
         def negotiate(payload: dict) -> dict:
             self._require("negotiate", payload)
             self.inboxes.negotiate.put(payload)
-            return {"step": payload.get("step", 0), "role": ROLE_TO_WIRE[self.role], "kind": "ack"}
+            return {
+                "kind": "negotiation",
+                "step": payload.get("step", 0),
+                "role": ROLE_TO_WIRE[self.role],
+                "config_digest": self.config_digest,
+                "scent_model_digest": "",
+                "game_count": 6,
+                "role_split": {"thief": [1, 2, 3], "cop": [4, 5, 6]},
+                "readings": {},
+                "step_zero": {},
+            }
 
         def receive_commit(payload: dict) -> dict:
             self._require("receive_commit", payload)
@@ -687,7 +706,8 @@ def run_block(args: argparse.Namespace, role: str, subgames: list[int]) -> list[
     config.override_game("pheromones.dialect", "multiplicative_book_v1")
     port = 8802 if role == "police" else 8801
     inboxes = Inboxes()
-    BestteamServer(role, "127.0.0.1", port, inboxes).start()
+    BestteamServer(role, "127.0.0.1", port, inboxes,
+                   config_digest=config.config_sha256()).start()
     time.sleep(1.0)
     client = BestteamClient(args.opponent_url, timeout=args.timeout)
     rows: list[dict[str, Any]] = []
