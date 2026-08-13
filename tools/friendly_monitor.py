@@ -21,9 +21,8 @@ from typing import Any, Mapping
 
 DEFAULT_GAME_ID = "anrbj666-vs-nis-yar1"
 DEFAULT_URLS = (
-    "https://duckling-judgingly-frigidly.ngrok-free.dev/",
-    "https://duckling-judgingly-frigidly.ngrok-free.dev/cop/mcp",
-    "https://duckling-judgingly-frigidly.ngrok-free.dev/thief/mcp",
+    "https://fish-mining-identify-hepatitis.trycloudflare.com/",
+    "https://fish-mining-identify-hepatitis.trycloudflare.com/mcp",
 )
 
 
@@ -80,7 +79,7 @@ def _launch_logs(tunnel_dir: Path) -> list[Path]:
 
 
 def _ports() -> list[str]:
-    text = _run(["cmd", "/c", 'netstat -ano | findstr ":8799 :8801 :8802"'])
+    text = _run(["cmd", "/c", 'netstat -ano | findstr ":8799 :8801 :8802 :8902"'])
     return [line.strip() for line in text.splitlines() if line.strip()]
 
 
