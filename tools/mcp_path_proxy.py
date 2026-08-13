@@ -16,6 +16,7 @@ from urllib.parse import urlsplit, urlunsplit
 
 ROUTES: dict[str, tuple[str, int]] = {}
 ROLE_ROUTES: dict[str, tuple[str, int]] = {}
+SUBGAME_ROUTES: dict[int, str] = {}
 MY_STARTING_ROLE = "police"
 HOP_HEADERS = {
     "connection",
@@ -32,6 +33,11 @@ TOOL_ARGUMENT_KEYS = {
     "receive_turn": "message",
     "submit_audit": "payload",
     "receive_control": "message",
+    "receive_commit": "payload",
+    "receive_reveal": "payload",
+    "final_reveal": "payload",
+    "capture_claim": "payload",
+    "declare_barrier": "payload",
 }
 PROTOCOL_VERSION = "2025-06-18"
 BASE_MCP_HEADERS = {
@@ -43,6 +49,11 @@ TOOLS = (
     {"name": "receive_turn", "inputSchema": {"type": "object"}},
     {"name": "submit_audit", "inputSchema": {"type": "object"}},
     {"name": "receive_control", "inputSchema": {"type": "object"}},
+    {"name": "receive_commit", "inputSchema": {"type": "object"}},
+    {"name": "receive_reveal", "inputSchema": {"type": "object"}},
+    {"name": "final_reveal", "inputSchema": {"type": "object"}},
+    {"name": "capture_claim", "inputSchema": {"type": "object"}},
+    {"name": "declare_barrier", "inputSchema": {"type": "object"}},
 )
 
 
@@ -56,6 +67,7 @@ def _target(path: str) -> tuple[str, int, str] | None:
 
 
 def _opposite(role: str) -> str:
+    role = "police" if role == "cop" else role
     if role == "thief":
         return "police"
     if role == "police":
@@ -64,9 +76,22 @@ def _opposite(role: str) -> str:
 
 
 def _role_for_subgame(number: int) -> str:
+    explicit = SUBGAME_ROUTES.get(number)
+    if explicit is not None:
+        return explicit
     if number % 2 == 1:
         return MY_STARTING_ROLE
     return _opposite(MY_STARTING_ROLE)
+
+
+def _parse_subgame_routes(text: str, role: str) -> dict[int, str]:
+    routes: dict[int, str] = {}
+    for part in text.split(","):
+        part = part.strip()
+        if not part:
+            continue
+        routes[int(part)] = role
+    return routes
 
 
 def _message_body(tool: str, arguments: dict) -> dict | None:
@@ -88,13 +113,19 @@ def role_for_tool_call(tool: str, arguments: dict) -> str | None:
     if body is None:
         return None
     sender = body.get("sender")
+    if sender == "cop":
+        sender = "police"
     if sender in ROLE_ROUTES:
         return _opposite(str(sender))
+    role = body.get("role")
+    if role == "cop":
+        role = "police"
+    if role in ROLE_ROUTES:
+        return _opposite(str(role))
     if tool == "negotiate":
-        role = body.get("role")
-        if role in ROLE_ROUTES:
-            return _opposite(str(role))
         number = body.get("sub_game_number")
+        if not isinstance(number, int) or isinstance(number, bool):
+            number = body.get("sub_game")
         if isinstance(number, int) and not isinstance(number, bool):
             return _role_for_subgame(number)
     return None
@@ -307,6 +338,10 @@ def main() -> None:
     parser.add_argument("--thief-port", type=int, default=8801)
     parser.add_argument("--my-starting-role", choices=("police", "thief"), default="police",
                         help="our role in odd sub-games, used only if negotiate omits role")
+    parser.add_argument("--police-subgames", default="",
+                        help="comma-separated sub-game numbers routed to our police backend")
+    parser.add_argument("--thief-subgames", default="",
+                        help="comma-separated sub-game numbers routed to our thief backend")
     args = parser.parse_args()
     ROUTES.update({
         "/cop": (args.host, args.cop_port),
@@ -318,6 +353,8 @@ def main() -> None:
     })
     global MY_STARTING_ROLE
     MY_STARTING_ROLE = args.my_starting_role
+    SUBGAME_ROUTES.update(_parse_subgame_routes(args.police_subgames, "police"))
+    SUBGAME_ROUTES.update(_parse_subgame_routes(args.thief_subgames, "thief"))
     server = ThreadingHTTPServer((args.host, args.port), Proxy)
     print(
         f"MCP path proxy listening on http://{args.host}:{args.port} "
