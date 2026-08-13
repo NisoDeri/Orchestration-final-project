@@ -204,6 +204,14 @@ class Proxy(BaseHTTPRequestHandler):
             return
         self._proxy()
 
+    def do_DELETE(self) -> None:  # noqa: N802
+        if self._is_unified_mcp():
+            self.send_response(202)
+            self.send_header("content-length", "0")
+            self.end_headers()
+            return
+        self._proxy()
+
     def _unified_mcp(self) -> None:
         length = int(self.headers.get("content-length", "0") or "0")
         raw = self.rfile.read(length) if length else b"{}"
