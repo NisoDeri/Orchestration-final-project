@@ -1,0 +1,338 @@
+{
+  "_schema": "Summary and final result for the WHOLE game (all sub-games) between two teams. It condenses the per-sub-game logs into a per-group score for every sub-game plus the aggregate outcome the lecturer needs for the league standings. Both teams must agree on this result and each sends its own copy to the lecturer (book ch9).",
+  "schema_version": "1.1",
+  "report_type": "final_game_result",
+  "game_id": "anrbj666-vs-nis-yar1",
+  "game_uid": "bc77e467-4522-c355-cf69-868515ecc8a7",
+  "links": {
+    "_remark": "These are logical roles, NOT fixed filenames. Each actual file name is derived from the game_id so files from different games are never mixed. Match-level files (declaration, result) are named <role>_<game_id>.json; per-sub-game files (config, log) are named <role>_<game_id>_g<NN>.json where <NN> is the sub_game_number.",
+    "declaration": "declaration_anrbj666-vs-nis-yar1.json",
+    "config": "config_anrbj666-vs-nis-yar1_g<NN>.json",
+    "log": "log_anrbj666-vs-nis-yar1_g<NN>.json",
+    "result": "result_anrbj666-vs-nis-yar1.json"
+  },
+  "timezone": "Asia/Jerusalem",
+  "groups": [
+    "nis-yar1",
+    "anrbj666"
+  ],
+  "num_sub_games": 6,
+  "sub_games": [
+    {
+      "sub_game_number": 1,
+      "roles": {
+        "nis-yar1": "thief",
+        "anrbj666": "police"
+      },
+      "result": "survival",
+      "winner_group": "nis-yar1",
+      "tie": false,
+      "github_commit": {},
+      "tokens": {
+        "nis-yar1": 0,
+        "anrbj666": 0
+      },
+      "score": {
+        "nis-yar1": 10,
+        "anrbj666": 5
+      },
+      "steps": 35,
+      "turns_completed": 35,
+      "step_count_convention": "steps is this peer's own valid-turn counter, including terminal concession/survival records when this peer emits them. turns_completed is the last step number emitted by the winning role; on technical/tie outcomes it is the max revealed step.",
+      "end_state_digest": "8377ca4bebdd45df52f57937934a81d09bd24c51bb9c5693ead6397d9f46216d",
+      "digest_match": null,
+      "log_files": {
+        "nis-yar1": "log_anrbj666-vs-nis-yar1_g01.json",
+        "anrbj666": "log_anrbj666-vs-nis-yar1_g01.json"
+      },
+      "audit": {
+        "log_verified": true,
+        "tampered": false
+      }
+    },
+    {
+      "sub_game_number": 2,
+      "roles": {
+        "nis-yar1": "police",
+        "anrbj666": "thief"
+      },
+      "result": "capture",
+      "winner_group": "nis-yar1",
+      "tie": false,
+      "github_commit": {},
+      "tokens": {
+        "nis-yar1": 0,
+        "anrbj666": 0
+      },
+      "score": {
+        "nis-yar1": 20,
+        "anrbj666": 5
+      },
+      "steps": 13,
+      "turns_completed": 13,
+      "step_count_convention": "steps is this peer's own valid-turn counter, including terminal concession/survival records when this peer emits them. turns_completed is the last step number emitted by the winning role; on technical/tie outcomes it is the max revealed step.",
+      "end_state_digest": "e7bbef75e73df84d1029eb41aa7e190279c4f42d3f4eeb6a82d0e5e208ad44a5",
+      "digest_match": null,
+      "log_files": {
+        "nis-yar1": "log_anrbj666-vs-nis-yar1_g02.json",
+        "anrbj666": "log_anrbj666-vs-nis-yar1_g02.json"
+      },
+      "audit": {
+        "log_verified": true,
+        "tampered": false
+      }
+    },
+    {
+      "sub_game_number": 3,
+      "roles": {
+        "nis-yar1": "thief",
+        "anrbj666": "police"
+      },
+      "result": "survival",
+      "winner_group": "nis-yar1",
+      "tie": false,
+      "github_commit": {},
+      "tokens": {
+        "nis-yar1": 0,
+        "anrbj666": 0
+      },
+      "score": {
+        "nis-yar1": 10,
+        "anrbj666": 5
+      },
+      "steps": 35,
+      "turns_completed": 35,
+      "step_count_convention": "steps is this peer's own valid-turn counter, including terminal concession/survival records when this peer emits them. turns_completed is the last step number emitted by the winning role; on technical/tie outcomes it is the max revealed step.",
+      "end_state_digest": "b839943457e65d78e8517219a12e402ad3441945eff1be55c26ba1cdfb144d46",
+      "digest_match": null,
+      "log_files": {
+        "nis-yar1": "log_anrbj666-vs-nis-yar1_g03.json",
+        "anrbj666": "log_anrbj666-vs-nis-yar1_g03.json"
+      },
+      "audit": {
+        "log_verified": true,
+        "tampered": false
+      }
+    },
+    {
+      "sub_game_number": 4,
+      "roles": {
+        "nis-yar1": "police",
+        "anrbj666": "thief"
+      },
+      "result": "capture",
+      "winner_group": "nis-yar1",
+      "tie": false,
+      "github_commit": {},
+      "tokens": {
+        "nis-yar1": 0,
+        "anrbj666": 0
+      },
+      "score": {
+        "nis-yar1": 20,
+        "anrbj666": 5
+      },
+      "steps": 13,
+      "turns_completed": 13,
+      "step_count_convention": "steps is this peer's own valid-turn counter, including terminal concession/survival records when this peer emits them. turns_completed is the last step number emitted by the winning role; on technical/tie outcomes it is the max revealed step.",
+      "end_state_digest": "e7bbef75e73df84d1029eb41aa7e190279c4f42d3f4eeb6a82d0e5e208ad44a5",
+      "digest_match": null,
+      "log_files": {
+        "nis-yar1": "log_anrbj666-vs-nis-yar1_g04.json",
+        "anrbj666": "log_anrbj666-vs-nis-yar1_g04.json"
+      },
+      "audit": {
+        "log_verified": true,
+        "tampered": false
+      }
+    },
+    {
+      "sub_game_number": 5,
+      "roles": {
+        "nis-yar1": "thief",
+        "anrbj666": "police"
+      },
+      "result": "capture",
+      "winner_group": "anrbj666",
+      "tie": false,
+      "github_commit": {},
+      "tokens": {
+        "nis-yar1": 0,
+        "anrbj666": 0
+      },
+      "score": {
+        "nis-yar1": 5,
+        "anrbj666": 20
+      },
+      "steps": 24,
+      "turns_completed": 23,
+      "step_count_convention": "steps is this peer's own valid-turn counter, including terminal concession/survival records when this peer emits them. turns_completed is the last step number emitted by the winning role; on technical/tie outcomes it is the max revealed step.",
+      "end_state_digest": "8c3684fbc4a4c5eaeee1370043a637598a3dd9ba5849871d56ac2ac1aaf4ed41",
+      "digest_match": null,
+      "log_files": {
+        "nis-yar1": "log_anrbj666-vs-nis-yar1_g05.json",
+        "anrbj666": "log_anrbj666-vs-nis-yar1_g05.json"
+      },
+      "audit": {
+        "log_verified": true,
+        "tampered": false
+      }
+    },
+    {
+      "sub_game_number": 6,
+      "roles": {
+        "nis-yar1": "police",
+        "anrbj666": "thief"
+      },
+      "result": "capture",
+      "winner_group": "nis-yar1",
+      "tie": false,
+      "github_commit": {},
+      "tokens": {
+        "nis-yar1": 0,
+        "anrbj666": 0
+      },
+      "score": {
+        "nis-yar1": 20,
+        "anrbj666": 5
+      },
+      "steps": 13,
+      "turns_completed": 13,
+      "step_count_convention": "steps is this peer's own valid-turn counter, including terminal concession/survival records when this peer emits them. turns_completed is the last step number emitted by the winning role; on technical/tie outcomes it is the max revealed step.",
+      "end_state_digest": "e7bbef75e73df84d1029eb41aa7e190279c4f42d3f4eeb6a82d0e5e208ad44a5",
+      "digest_match": null,
+      "log_files": {
+        "nis-yar1": "log_anrbj666-vs-nis-yar1_g06.json",
+        "anrbj666": "log_anrbj666-vs-nis-yar1_g06.json"
+      },
+      "audit": {
+        "log_verified": true,
+        "tampered": false
+      }
+    }
+  ],
+  "final_result": {
+    "total_score": {
+      "nis-yar1": 85,
+      "anrbj666": 45
+    },
+    "sub_games_won": {
+      "nis-yar1": 5,
+      "anrbj666": 1
+    },
+    "ties": 0,
+    "winner_group": "nis-yar1",
+    "series_tie": false,
+    "tokens_total_series": {
+      "nis-yar1": 0,
+      "anrbj666": 0
+    }
+  },
+  "mutual_agreement": {
+    "sha256": "5312e9f29bbcef07c30a3c97b2af8e31c527e90e29b2ae8ba8b17b15b5cda2c0",
+    "confirmed": true
+  },
+  "settlement": {
+    "game_id": "anrbj666-vs-nis-yar1",
+    "aggregate": {
+      "total_score": {
+        "nis-yar1": 85,
+        "anrbj666": 45
+      },
+      "sub_games_won": {
+        "nis-yar1": 5,
+        "anrbj666": 1
+      },
+      "ties": 0,
+      "winner_group": "nis-yar1",
+      "series_tie": false
+    },
+    "sub_games": [
+      {
+        "sub_game_number": 1,
+        "roles": {
+          "nis-yar1": "thief",
+          "anrbj666": "police"
+        },
+        "result": "survival",
+        "winner_group": "nis-yar1",
+        "tie": false,
+        "score": {
+          "nis-yar1": 10,
+          "anrbj666": 5
+        }
+      },
+      {
+        "sub_game_number": 2,
+        "roles": {
+          "nis-yar1": "police",
+          "anrbj666": "thief"
+        },
+        "result": "capture",
+        "winner_group": "nis-yar1",
+        "tie": false,
+        "score": {
+          "nis-yar1": 20,
+          "anrbj666": 5
+        }
+      },
+      {
+        "sub_game_number": 3,
+        "roles": {
+          "nis-yar1": "thief",
+          "anrbj666": "police"
+        },
+        "result": "survival",
+        "winner_group": "nis-yar1",
+        "tie": false,
+        "score": {
+          "nis-yar1": 10,
+          "anrbj666": 5
+        }
+      },
+      {
+        "sub_game_number": 4,
+        "roles": {
+          "nis-yar1": "police",
+          "anrbj666": "thief"
+        },
+        "result": "capture",
+        "winner_group": "nis-yar1",
+        "tie": false,
+        "score": {
+          "nis-yar1": 20,
+          "anrbj666": 5
+        }
+      },
+      {
+        "sub_game_number": 5,
+        "roles": {
+          "nis-yar1": "thief",
+          "anrbj666": "police"
+        },
+        "result": "capture",
+        "winner_group": "anrbj666",
+        "tie": false,
+        "score": {
+          "nis-yar1": 5,
+          "anrbj666": 20
+        }
+      },
+      {
+        "sub_game_number": 6,
+        "roles": {
+          "nis-yar1": "police",
+          "anrbj666": "thief"
+        },
+        "result": "capture",
+        "winner_group": "nis-yar1",
+        "tie": false,
+        "score": {
+          "nis-yar1": 20,
+          "anrbj666": 5
+        }
+      }
+    ],
+    "חתימת_קונסנזוס_משותפת": "17da7b830a5ba941c18c36c0a7394b6ecfe4ff37a87ece9d417c7b37bf711355"
+  }
+}

@@ -192,8 +192,20 @@ def test_audit_rejections(mutate) -> None:
 
 
 def test_audit_accepts_all_negotiated_result_claims() -> None:
-    for claim in ("capture", "survival", "timeout", "technical_loss"):
+    for claim in ("capture", "survival", "timeout", "technical_loss", "tamper_forfeit"):
         assert AuditPayload.from_wire({**GOLDEN_AUDIT, "result_claim": claim}).result_claim
+
+
+def test_audit_accepts_series_consensus_digest() -> None:
+    payload = {
+        "sender": "thief",
+        "result_claim": "series_consensus",
+        "records": [],
+        "consensus_sha": "a" * 64,
+    }
+    parsed = AuditPayload.from_wire(payload)
+    assert parsed.consensus_sha == "a" * 64
+    assert parsed.to_wire() == payload
 
 
 # --- sealed_payload ----------------------------------------------------------------

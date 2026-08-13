@@ -182,8 +182,9 @@ class TestEndings:
         assert out_p.steps == 2  # the cop spent its whole budget
 
     def test_illegal_brain_move_degrades_and_is_flagged(self):
+        police = [decision(MOVE, Direction.E)]
         thief = [decision(MOVE, Direction.W), decision(MOVE, Direction.W)]
-        out_p, out_t = duel([], thief, make_game(survival=3, thief_start=(2, 0)))
+        out_p, out_t = duel(police, thief, make_game(survival=3, thief_start=(2, 0)))
         assert out_t.result is GameResult.SURVIVAL  # never stalled on the illegal W
         flagged = [r["payload"]["random_move"] for r in out_t.records[1:]]
         assert flagged[1] is True  # the degraded step is honestly flagged in the seal

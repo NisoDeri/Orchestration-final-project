@@ -13,6 +13,7 @@ from __future__ import annotations
 from typing import Any
 
 from pursuit.domain.crypto.dialects import generate_nonce
+from pursuit.domain.game_ids import derive_game_ids
 from pursuit.domain.negotiation import agreement_signature, build_terms
 from pursuit.exceptions import ConfigError
 from pursuit.shared.config import ConfigManager
@@ -33,7 +34,9 @@ def _optional_private(config: ConfigManager, path: str, default: Any) -> Any:
         return default
 
 
-def build_identity(config: ConfigManager, public_pem: bytes) -> dict[str, Any]:
+def build_identity(
+    config: ConfigManager, public_pem: bytes, github_commit: str | None = None
+) -> dict[str, Any]:
     """The unsigned identity block (INTEROP §2.1) + D14/rule-37 additive keys."""
     identity: dict[str, Any] = {
         "group_id": config.private("game.group_id"),
@@ -45,6 +48,9 @@ def build_identity(config: ConfigManager, public_pem: bytes) -> dict[str, Any]:
         "ed25519_public_key": public_pem.decode("ascii"),
         "counted_games_so_far": int(_optional_private(config, "game.counted_games_so_far", 0)),
     }
+    if github_commit:
+        identity["git_commit_hash"] = str(github_commit)
+        identity["github_commit"] = str(github_commit)
     spec = _optional_private(config, "game.spec", None)  # step0 owns full HW collection
     if spec is not None:
         identity["spec"] = spec
@@ -66,12 +72,26 @@ def build_lock_declarations(config: ConfigManager) -> dict[str, Any]:
     return declarations
 
 
+def _declared_game_uid(config: ConfigManager, terms: dict[str, Any]) -> str | None:
+    """Declare the derived uid when the shared config names this two-team pairing."""
+    try:
+        group_ids = [str(gid) for gid in config.game("agreed_between")]
+        my_gid = str(config.private("game.group_id"))
+        opponent_gid = str(config.private("game.opponent_group_id"))
+    except Exception:  # noqa: BLE001 - optional interoperability declaration
+        return None
+    if len(group_ids) != 2 or sorted(group_ids) != sorted([my_gid, opponent_gid]):
+        return None
+    return derive_game_ids(terms, group_ids)[1]
+
+
 def build_agreement_message(
     config: ConfigManager,
     public_pem: bytes,
     *,
     sub_game_number: int | None = None,
     role: str | None = None,
+    github_commit: str | None = None,
 ) -> dict[str, Any]:
     """One signed ``negotiate`` body: fresh nonce, §3.3 signature, unsigned identity.
 
@@ -86,8 +106,11 @@ def build_agreement_message(
         "terms": terms,
         "nonce": nonce,
         "signature": agreement_signature(terms, nonce),
-        "identity": build_identity(config, public_pem),
+        "group_id": config.private("game.group_id"),
+        "identity": build_identity(config, public_pem, github_commit),
     }
+    if (game_uid := _declared_game_uid(config, terms)) is not None:
+        message["game_uid"] = game_uid
     message.update(build_lock_declarations(config))
     if sub_game_number is not None:
         message["sub_game_number"] = int(sub_game_number)

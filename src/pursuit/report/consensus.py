@@ -22,6 +22,9 @@ CONSENSUS_KEY = "חתימת_קונסנזוס_משותפת"
 _ROW_KEYS = ("sub_game_number", "roles", "result", "winner_group", "tie", "score")
 _MUTUAL_ROW_KEYS = ("sub_game_number", "roles", "result", "winner_group", "score")
 _AGG_KEYS = ("total_score", "sub_games_won", "ties", "winner_group", "series_tie")
+_CANONICAL_RESULTS = frozenset(
+    {"capture", "survival", "timeout", "technical_loss", "tamper_forfeit"}
+)
 
 
 def consensus_bytes(report: Mapping[str, Any]) -> bytes:
@@ -59,21 +62,59 @@ def consensus_scope(result: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def mutual_agreement_scope(result: Mapping[str, Any]) -> dict[str, Any]:
-    """Outcome-only agreement hash scope; intentionally omits the row ``tie`` field."""
-    aggregate = result.get("final_result", {})
+    """Guide-compatible compact consensus object: game_id, game_uid, and five-key rows."""
+    rows = [_canonical_row(row) for row in result.get("sub_games", [])]
     return {
         "game_id": result.get("game_id"),
-        "aggregate": {key: aggregate.get(key) for key in _AGG_KEYS},
-        "sub_games": [{key: row.get(key) for key in _MUTUAL_ROW_KEYS}
-                      for row in result.get("sub_games", [])],
+        "game_uid": result.get("game_uid") or _first_game_uid(result.get("sub_games", [])),
+        "sub_games": sorted(rows, key=lambda row: int(row["sub_game_number"])),
     }
 
 
 def mutual_agreement_signature(result: Mapping[str, Any]) -> str:
-    """SHA-256 over the spaced symmetric outcome scope both teams independently derive."""
-    return hashlib.sha256(consensus_bytes(mutual_agreement_scope(result))).hexdigest()
+    """SHA-256 over compact canonical JSON for the guide's consensus object."""
+    canon = json.dumps(
+        mutual_agreement_scope(result), sort_keys=True, ensure_ascii=False,
+        separators=(",", ":"),
+    )
+    return hashlib.sha256(canon.encode("utf-8")).hexdigest()
 
 
 def settlement(result: Mapping[str, Any]) -> dict[str, Any]:
     """The signed consensus block to embed in the result artifact (scope + its signature)."""
     return sign_consensus(consensus_scope(result))
+
+
+def _first_game_uid(rows: Any) -> str:
+    for row in rows or []:
+        if isinstance(row, Mapping) and row.get("game_uid"):
+            return str(row["game_uid"])
+    return ""
+
+
+def _winner_group(row: Mapping[str, Any]) -> str | None:
+    winner = row.get("winner_group")
+    if winner is not None:
+        return str(winner)
+    winner_role = row.get("winner_role")
+    if winner_role is None:
+        return None
+    roles = row.get("roles", {})
+    if not isinstance(roles, Mapping):
+        return None
+    return next((str(gid) for gid, role in roles.items() if role == winner_role), None)
+
+
+def _result(row: Mapping[str, Any]) -> str:
+    result = row.get("result")
+    return str(result) if result in _CANONICAL_RESULTS else "technical_loss"
+
+
+def _canonical_row(row: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        "sub_game_number": int(row.get("sub_game_number", 0) or 0),
+        "result": _result(row),
+        "roles": dict(row.get("roles", {}) or {}),
+        "score": dict(row.get("score", {}) or {}),
+        "winner_group": _winner_group(row),
+    }

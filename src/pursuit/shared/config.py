@@ -172,8 +172,9 @@ class ConfigManager:
         The import is lazy: ``negotiation`` imports us, so a module-level import would cycle.
         """
         from pursuit.domain.crypto.canonical import canonical_bytes, sha256_hex
+        from pursuit.domain.negotiation import build_terms
 
-        return sha256_hex(canonical_bytes(self._source_game))
+        return sha256_hex(canonical_bytes(build_terms(self)))
 
 
 def scent_params(game: Any) -> dict[str, Any]:

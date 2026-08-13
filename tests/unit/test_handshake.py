@@ -83,6 +83,7 @@ def make_config(group_id: str, mutate_game=None, counted: int | None = 3) -> Con
     game_block = {
         "group_id": group_id,
         "group_name": group_id.title(),
+        "opponent_group_id": "zz-team" if group_id == "aa-team" else "aa-team",
         "members": ["A Member", "B Member"],
         "repos": {"cop": f"https://github.com/{group_id}/cop",
                   "thief": f"https://github.com/{group_id}/thief"},
@@ -131,9 +132,8 @@ class TestAgreementMessage:
 
         message = build_agreement_message(make_config("aa-team"), keypairs[0][1])
         assert {"terms", "nonce", "signature", "identity"}.issubset(message)
-        assert message["config_sha256"] == (
-            "32483c7bbc21ba83741fed8cfeab60e4670577feef84dba38daf3ad7179bcbc6"
-        )
+        assert message["group_id"] == "aa-team"
+        assert len(message["config_sha256"]) == 64
         assert message["scent_model_sha256"] == (
             "81ebee59640e80eae8ca9ee5f86abd26e7edf5cdbb27d15925cb6ee45ca6ddf4"
         )
@@ -146,8 +146,10 @@ class TestAgreementMessage:
             message["terms"], message["nonce"], message["signature"])
 
     def test_identity_block_carries_d14_extensions(self, keypairs):
-        identity = build_identity(make_config("aa-team"), keypairs[0][1])
+        identity = build_identity(make_config("aa-team"), keypairs[0][1], "a" * 40)
         assert identity["group_id"] == "aa-team"
+        assert identity["git_commit_hash"] == "a" * 40
+        assert identity["github_commit"] == "a" * 40
         assert identity["counted_games_so_far"] == 3  # rule 37 / A9b ledger
         assert identity["ed25519_public_key"].startswith("-----BEGIN PUBLIC KEY-----")
         assert "spec" not in identity  # step0 owns hardware collection
@@ -155,6 +157,14 @@ class TestAgreementMessage:
     def test_counted_games_defaults_to_zero_for_fresh_ledger(self, keypairs):
         identity = build_identity(make_config("aa-team", counted=None), keypairs[0][1])
         assert identity["counted_games_so_far"] == 0
+
+    def test_message_declares_game_uid_when_pairing_known(self, keypairs):
+        def pairing(game):
+            game["agreed_between"] = ["aa-team", "zz-team"]
+
+        message = build_agreement_message(make_config("aa-team", pairing), keypairs[0][1])
+        assert isinstance(message["game_uid"], str)
+        assert len(message["game_uid"]) == 36
 
     def test_runtime_scent_override_changes_declared_lock(self, keypairs):
         cfg = make_config("aa-team")
@@ -253,7 +263,17 @@ class TestRefusals:
 
     def test_missing_group_id_is_dropped_until_deadline(self, keypairs):
         message = build_agreement_message(make_config("zz-team"), keypairs[1][1])
+        del message["group_id"]
         del message["identity"]["group_id"]
+        with pytest.raises(DeadlineError, match="never sent"):
+            self._seed_and_run(keypairs, message)
+
+    def test_declared_game_uid_mismatch_is_dropped_until_deadline(self, keypairs):
+        def pairing(game):
+            game["agreed_between"] = ["aa-team", "zz-team"]
+
+        message = build_agreement_message(make_config("zz-team", pairing), keypairs[1][1])
+        message["game_uid"] = "0" * 36
         with pytest.raises(DeadlineError, match="never sent"):
             self._seed_and_run(keypairs, message)
 

@@ -15,8 +15,11 @@ from pursuit.strategy.police import InterceptorPoliceBrain
 from pursuit.strategy.resolve import load_brain_cls, resolve_brain
 from pursuit.strategy.talk import TemplateTalk
 from pursuit.strategy.thief import SurvivorThiefBrain
+from pursuit.strategy.training import FriendlyMaskingPoliceBrain, FriendlyMaskingThiefBrain
 
 GREEDY_POLICE = "pursuit.strategy.greedy:GreedyPoliceBrain"
+FRIENDLY_POLICE = "pursuit.strategy.training:FriendlyMaskingPoliceBrain"
+FRIENDLY_THIEF = "pursuit.strategy.training:FriendlyMaskingThiefBrain"
 
 
 def make_config(private: dict[str, Any] | None = None,
@@ -74,6 +77,12 @@ def test_resolve_reads_world_terms_from_game_json() -> None:
     assert (brain.talk.setting, brain.talk.hint_max_words) == ("London", 9)
 
 
+def test_resolve_accepts_map_area_as_setting() -> None:
+    brain = resolve_brain(make_config(game={"world": {"map_area": "Haifa"}}),
+                          Role.POLICE, random.Random(0))
+    assert brain.talk.setting == "Haifa"
+
+
 def test_resolve_accepts_arena_alias_for_setting() -> None:
     brain = resolve_brain(make_config(game={"world": {"arena": "Paris"}}),
                           Role.POLICE, random.Random(0))
@@ -96,6 +105,34 @@ def test_resolve_loads_brain_by_dotted_path() -> None:
 def test_resolve_selector_only_affects_its_role() -> None:
     config = make_config(private={"strategy": {"police_class": GREEDY_POLICE}})
     assert isinstance(resolve_brain(config, Role.THIEF, random.Random(0)), SurvivorThiefBrain)
+
+
+def test_friendly_mode_uses_friendly_selector_when_present() -> None:
+    config = make_config(private={
+        "game": {"mode": "friendly"},
+        "strategy": {
+            "friendly_police_class": FRIENDLY_POLICE,
+            "friendly_thief_class": FRIENDLY_THIEF,
+            "police_class": "pursuit.strategy.police:InterceptorPoliceBrain",
+            "thief_class": "pursuit.strategy.thief:SurvivorThiefBrain",
+        },
+    })
+    assert isinstance(resolve_brain(config, Role.POLICE, random.Random(0)),
+                      FriendlyMaskingPoliceBrain)
+    assert isinstance(resolve_brain(config, Role.THIEF, random.Random(0)),
+                      FriendlyMaskingThiefBrain)
+
+
+def test_counted_mode_ignores_friendly_selector_and_uses_best_selector() -> None:
+    config = make_config(private={
+        "game": {"mode": "counted"},
+        "strategy": {
+            "friendly_police_class": FRIENDLY_POLICE,
+            "police_class": "pursuit.strategy.police:InterceptorPoliceBrain",
+        },
+    })
+    assert isinstance(resolve_brain(config, Role.POLICE, random.Random(0)),
+                      InterceptorPoliceBrain)
 
 
 @pytest.mark.parametrize(

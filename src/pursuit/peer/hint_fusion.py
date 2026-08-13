@@ -51,6 +51,8 @@ class HintFuser:
 def build_hint_fuser(config: Any) -> HintFuser | None:
     """Gated (private ``strategy.fuse_hints``) HintFuser; None on off/any error (non-fatal)."""
     try:
+        if _game_mode(config) != "counted":
+            return None
         if not bool(config.private("strategy.fuse_hints")):
             return None
         from pursuit.domain.belief.reliability import ReliabilityLedger
@@ -65,3 +67,11 @@ def build_hint_fuser(config: Any) -> HintFuser | None:
         return HintFuser(ledger, config.game("movement_and_barriers.move_set"))
     except Exception:  # noqa: BLE001 — a best-effort edge is never fatal
         return None
+
+
+def _game_mode(config: Any) -> str:
+    try:
+        mode = str(config.private("game.mode")).strip().lower()
+    except Exception:  # noqa: BLE001
+        return "friendly"
+    return "counted" if mode == "counted" else "friendly"

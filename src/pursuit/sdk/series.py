@@ -16,8 +16,10 @@ from typing import Any
 
 from pursuit.constants import Cell, Role
 from pursuit.domain.scoring import ScoreTable
-from pursuit.exceptions import ConfigError
+from pursuit.domain.protocol_audit import AuditPayload
+from pursuit.exceptions import ConfigError, DeadlineError, TransportError
 from pursuit.peer.runtime import PeerRuntime
+from pursuit.report.consensus import mutual_agreement_signature, mutual_agreement_scope
 from pursuit.sdk.series_log import (
     LieProfiler,
     emit_artifacts,
@@ -113,14 +115,39 @@ def logical_subgame_numbers(config: Any, role: Role, count: int, alternate: bool
     if len(pair) != 2 or my_gid not in pair:
         return list(range(1, count + 1))
     first = pair[0] == my_gid
+    starting_role = _configured_starting_role(config, my_gid)
 
     def role_for(number: int) -> Role:
         odd = number % 2 == 1
+        if starting_role is not None:
+            return starting_role if odd else starting_role.opponent
         if first:
             return Role.POLICE if odd else Role.THIEF
         return Role.THIEF if odd else Role.POLICE
 
     return [number for number in range(1, signed_total + 1) if role_for(number) is role][:count]
+
+
+def _configured_starting_role(config: Any, group_id: str) -> Role | None:
+    try:
+        return Role(str(config.game(f"series.starting_roles.{group_id}")))
+    except Exception:  # noqa: BLE001 - old configs use the lexical fallback above
+        return None
+
+
+class _NullProfiler:
+    prior: float | None = None
+
+    def observe(self, outcome: Any, opponent_role: Role) -> None:
+        return None
+
+
+def _game_mode(config: Any) -> str:
+    try:
+        mode = str(config.private("game.mode")).strip().lower()
+    except Exception:  # noqa: BLE001
+        return "friendly"
+    return "counted" if mode == "counted" else "friendly"
 
 
 def run_series(config: Any, role: Role, num_games: int, transport: Any, inboxes: Any, *,
@@ -140,7 +167,7 @@ def run_series(config: Any, role: Role, num_games: int, transport: Any, inboxes:
     rows: list[dict[str, int]] = []
     subs: list[dict[str, Any]] = []
     game_id = ""
-    profiler = LieProfiler(config)  # E2 cross-sub-game lie-profiler (default off, non-fatal)
+    profiler = LieProfiler(config) if _game_mode(config) == "counted" else _NullProfiler()
     logs: list[dict[str, Any]] = []  # per-sub-game docs -> the 4-artifact emission
     for number in logical_subgame_numbers(config, role, num_games, alternate):
         inboxes.turns.drain()  # stale-turn hygiene between sub-games (INTEROP §2.4);
@@ -166,8 +193,42 @@ def run_series(config: Any, role: Role, num_games: int, transport: Any, inboxes:
     summary = {"game_id": game_id, "group_id": my_gid, "num_sub_games": num_games,
                "sub_games": subs, "config_sha256": config.config_sha256(),
                **table.series_totals(rows)}
+    summary["mutual_agreement"] = _exchange_series_consensus(
+        role, summary, transport, inboxes, float(config.private("network.audit_send_timeout_seconds"))
+    )
     if logs_dir is not None:
         write_json(Path(logs_dir) / my_gid / f"series_{game_id}.json", summary)
         emit_artifacts(config, summary, logs, sysinfo, github_commit, keypair,
                        Path(logs_dir) / my_gid)
     return summary
+
+
+def _exchange_series_consensus(
+    role: Role, summary: dict[str, Any], transport: Any, inboxes: Any, timeout: float
+) -> dict[str, Any]:
+    """Best-effort guide Section 10 digest exchange after the played rows finish."""
+    sha = mutual_agreement_signature({
+        "game_id": summary.get("game_id"),
+        "game_uid": _summary_game_uid(summary),
+        "sub_games": summary.get("sub_games", []),
+    })
+    envelope = AuditPayload(
+        sender=role.value, result_claim="series_consensus", records=[], consensus_sha=sha
+    )
+    transport.submit_audit(envelope.to_wire())
+    try:
+        peer = AuditPayload.from_wire(inboxes.audits.get(timeout=timeout))
+    except (DeadlineError, TransportError):
+        return {"sha256": sha, "confirmed": False, "peer_sha256": None}
+    confirmed = (
+        peer.sender == role.opponent.value
+        and peer.result_claim == "series_consensus"
+        and peer.records == []
+        and peer.consensus_sha == sha
+    )
+    return {"sha256": sha, "confirmed": confirmed, "peer_sha256": peer.consensus_sha}
+
+
+def _summary_game_uid(summary: dict[str, Any]) -> str:
+    scope = mutual_agreement_scope(summary)
+    return str(scope.get("game_uid", ""))

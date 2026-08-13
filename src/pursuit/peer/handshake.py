@@ -177,11 +177,18 @@ def _candidate_handshake(
     _assert_pairing(sub_game_number, role, theirs)
     identity = theirs.get("identity")
     identity = identity if isinstance(identity, dict) else {}
-    opponent_gid = identity.get("group_id")
+    opponent_gid = theirs.get("group_id") or identity.get("group_id")
     if not isinstance(opponent_gid, str) or not opponent_gid:
         raise CryptoError("opponent identity missing group_id - cannot derive game ids")
+    if not identity.get("group_id"):
+        identity = {**identity, "group_id": opponent_gid}
     my_gid = config.private("game.group_id")
     game_id, game_uid = derive_game_ids(their_terms, [my_gid, opponent_gid])
+    declared_uid = theirs.get("game_uid")
+    if isinstance(declared_uid, str) and declared_uid != game_uid:
+        raise CryptoError(
+            f"opponent declared game_uid {declared_uid!r}, derived {game_uid!r}"
+        )
     counted = identity.get("counted_games_so_far")
     return Handshake(
         game_id=game_id,
@@ -201,6 +208,7 @@ def run_handshake(
     *,
     sub_game_number: int | None = None,
     role: str | None = None,
+    github_commit: str | None = None,
     clock: Callable[[], float] = time.monotonic,
     sleep: Callable[[float], None] = time.sleep,
 ) -> Handshake:
@@ -212,7 +220,10 @@ def run_handshake(
     are tolerated (retries may leave copies in the queue; the first message wins).
     """
     _private_pem, public_pem = keypair
-    mine = build_agreement_message(config, public_pem, sub_game_number=sub_game_number, role=role)
+    mine = build_agreement_message(
+        config, public_pem, sub_game_number=sub_game_number, role=role,
+        github_commit=github_commit,
+    )
     retry = float(config.private("network.retry_interval_seconds"))
     poll = float(config.private("network.poll_interval_seconds"))
     deadline = clock() + float(config.private("network.connect_timeout_seconds"))

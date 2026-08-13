@@ -25,13 +25,18 @@ SEALED_STEP_KEYS: tuple[str, ...] = (
 )
 INTENTS = frozenset({"truth", "lie"})
 #: §2.3 claims plus our negotiated "technical_loss" ending (rulings A6/A9a, D9 fix 4).
-RESULT_CLAIMS = frozenset({"capture", "survival", "timeout", "technical_loss"})
+RESULT_CLAIMS = frozenset({
+    "capture", "survival", "timeout", "technical_loss", "tamper_forfeit",
+    "series_consensus",
+})
 HOLD_WIRE = "HOLD:-"  # staying put always travels as this exact string (§2.2)
 
 # Keys extra= may NEVER override: they define WHAT happened, not telemetry about it.
 _IDENTITY_KEYS = frozenset({"step", "state", "position", "move", "intent", "verdict", "hint"})
 _RECORD_SPEC: dict[str, type] = {"payload": dict, "nonce": str, "commit": str}
 _AUDIT_SPEC: dict[str, type] = {"sender": str, "result_claim": str, "records": list}
+_AUDIT_KEYS = (*_AUDIT_SPEC, "consensus_sha")
+_SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 _SELF_RE = re.compile(r";self=\[(-?\d+), (-?\d+)\]")  # the state string's own-cell field
 
 
@@ -135,16 +140,26 @@ class AuditPayload:
     sender: str
     result_claim: str
     records: list[AuditRecord]
+    consensus_sha: str | None = None
 
     def to_wire(self) -> dict[str, Any]:
-        return {"sender": self.sender, "result_claim": self.result_claim,
+        body = {"sender": self.sender, "result_claim": self.result_claim,
                 "records": [record.to_wire() for record in self.records]}
+        if self.consensus_sha is not None:
+            body["consensus_sha"] = self.consensus_sha
+        return body
 
     @classmethod
     def from_wire(cls, data: dict[str, Any]) -> AuditPayload:
-        validate_envelope(data, _AUDIT_SPEC, _AUDIT_SPEC, "AuditPayload")
+        validate_envelope(data, _AUDIT_SPEC, _AUDIT_KEYS, "AuditPayload")
         require_role(data["sender"], "AuditPayload")
         if data["result_claim"] not in RESULT_CLAIMS:
             raise TransportError(f"AuditPayload result_claim not in {sorted(RESULT_CLAIMS)}")
+        consensus_sha = data.get("consensus_sha")
+        if consensus_sha is not None and not (
+            isinstance(consensus_sha, str) and _SHA256_RE.fullmatch(consensus_sha)
+        ):
+            consensus_sha = None
         records = [AuditRecord.from_wire(record) for record in data["records"]]
-        return cls(sender=data["sender"], result_claim=data["result_claim"], records=records)
+        return cls(sender=data["sender"], result_claim=data["result_claim"], records=records,
+                   consensus_sha=consensus_sha)

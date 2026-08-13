@@ -32,6 +32,10 @@ _DEFAULT_BRAINS: dict[Role, type[BrainBase]] = {
     Role.THIEF: SurvivorThiefBrain,
 }
 _SELECTOR_KEYS = {Role.POLICE: "strategy.police_class", Role.THIEF: "strategy.thief_class"}
+_FRIENDLY_SELECTOR_KEYS = {
+    Role.POLICE: "strategy.friendly_police_class",
+    Role.THIEF: "strategy.friendly_thief_class",
+}
 _TUNING_TABLES: dict[Role, tuple[str, frozenset[str]]] = {
     Role.POLICE: ("police", frozenset({"barrier_finisher_p", "cage_radius",
                                         "close_barrier_p", "jitter_epsilon"})),
@@ -72,12 +76,25 @@ def resolve_brain(config: Any, role: Role | str, rng: Any,
                   talk: TalkLike | None = None) -> BrainBase:
     """Instantiate the configured brain for ``role`` with injected talk + rng."""
     role = Role(role)
-    selector = _optional(config.private, _SELECTOR_KEYS[role])
+    selector = _strategy_selector(config, role)
     cls = load_brain_cls(selector) if selector is not None else _DEFAULT_BRAINS[role]
     if talk is None:
         talk = _default_talk(config, rng)
     kwargs = _tuning_kwargs(config, role) if cls is _DEFAULT_BRAINS[role] else {}
     return cls(talk, rng, **kwargs)
+
+
+def _strategy_selector(config: Any, role: Role) -> Any:
+    if _game_mode(config) == "friendly":
+        friendly = _optional(config.private, _FRIENDLY_SELECTOR_KEYS[role])
+        if friendly is not None:
+            return friendly
+    return _optional(config.private, _SELECTOR_KEYS[role])
+
+
+def _game_mode(config: Any) -> str:
+    mode = str(_optional(config.private, "game.mode") or "friendly").strip().lower()
+    return "counted" if mode == "counted" else "friendly"
 
 
 def _tuning_kwargs(config: Any, role: Role) -> dict[str, Any]:
@@ -99,6 +116,8 @@ def _default_talk(config: Any, rng: Any) -> TalkLike:
     LLM selection can never raise into the game. ``"template"`` (default) stays TemplateTalk.
     """
     setting = _optional(config.game, "world.setting")
+    if setting is None:
+        setting = _optional(config.game, "world.map_area")
     if setting is None:
         setting = _optional(config.game, "world.arena")  # arch §7.2 names the key 'arena'
     setting = _FALLBACK_SETTING if setting is None else str(setting)

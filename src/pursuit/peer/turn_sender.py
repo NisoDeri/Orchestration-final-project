@@ -95,8 +95,7 @@ class TurnSender:
             step=step, sender=self.role.value, hint=hint, smell_grid=scent_mine.snapshot(),
             commit=record["commit"], timestamp=self._now(),
             barrier_placed=None if barrier_cell is None else list(barrier_cell),
-            capture_claim=(list(own_state.position)  # cop, EVERY MOVE turn (INTEROP §2.2)
-                           if self.role is Role.POLICE and move_type is MoveType.MOVE else None),
+            capture_claim=(list(own_state.position) if self.role is Role.POLICE else None),
             claim_response=claim_response,
             win_claim={"type": "survival"} if survived else None)
         fsm.advance(State.SENDING)

@@ -64,9 +64,10 @@ def test_scope_is_trimmed_to_agreement_only_fields() -> None:
     assert verify_consensus(settlement(artifact))
 
 
-def test_mutual_agreement_scope_omits_tie_field_and_uses_spaced_hash() -> None:
+def test_mutual_agreement_scope_uses_guide_compact_hash() -> None:
     result = {
         "game_id": "anrbj666-vs-nis-yar1",
+        "game_uid": "uid-123",
         "sub_games": [{"sub_game_number": 1, "roles": {"nis-yar1": "thief",
                        "anrbj666": "police"}, "result": "capture",
                        "winner_group": "anrbj666", "tie": False,
@@ -77,7 +78,10 @@ def test_mutual_agreement_scope_omits_tie_field_and_uses_spaced_hash() -> None:
                          "series_tie": False},
     }
     scope = mutual_agreement_scope(result)
-    assert "tie" not in scope["sub_games"][0]
+    assert set(scope) == {"game_id", "game_uid", "sub_games"}
+    assert set(scope["sub_games"][0]) == {
+        "sub_game_number", "result", "roles", "score", "winner_group"}
     assert mutual_agreement_signature(result) == hashlib.sha256(
-        json.dumps(scope, sort_keys=True, ensure_ascii=False).encode("utf-8")
+        json.dumps(scope, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+        .encode("utf-8")
     ).hexdigest()

@@ -94,7 +94,8 @@ class PeerRuntime:
             self.handshake = run_handshake(self.transport, AgreementsView(self.inboxes),
                                            self.config, self.keypair,
                                            sub_game_number=self.sub_game_number,
-                                           role=self.role.value)
+                                           role=self.role.value,
+                                           github_commit=self._step0_args[1])
         self.log.step0_record(self.config, *self._step0_args, self.keypair,
                               sub_game_number=self.sub_game_number)
         self.fsm.advance(State.MY_TURN if self.role is Role.THIEF else State.OPP_TURN)

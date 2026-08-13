@@ -2,11 +2,15 @@
 
 from types import SimpleNamespace
 
+from pursuit.peer.hint_fusion import build_hint_fuser
 from pursuit.sdk.series_log import _game_mode, _mode_recipient
 
 
 def _cfg(private: dict):
-    return SimpleNamespace(private=lambda path: _dig(private, path))
+    return SimpleNamespace(
+        private=lambda path: _dig(private, path),
+        game=lambda path: _dig(private, path),
+    )
 
 
 def _dig(tree: dict, path: str):
@@ -50,3 +54,26 @@ def test_unknown_mode_falls_back_to_friendly():
 def test_legacy_single_recipient_still_honored():
     cfg = _cfg({"email": {"recipient": "solo@x.com"}})
     assert _mode_recipient(cfg) == "solo@x.com"
+
+
+def test_friendly_mode_disables_hint_fusion_learning():
+    cfg = _cfg({
+        "game": {"mode": "friendly"},
+        "strategy": {"fuse_hints": True},
+        "belief": {"hint_trust_prior": 0.5, "hint_prior_strength": 2.0,
+                   "reliability_forget": 0.95},
+        "llm_defense": {"injection_penalty": 0.25},
+    })
+    assert build_hint_fuser(cfg) is None
+
+
+def test_counted_mode_can_enable_hint_fusion_learning():
+    cfg = _cfg({
+        "game": {"mode": "counted"},
+        "strategy": {"fuse_hints": True},
+        "belief": {"hint_trust_prior": 0.5, "hint_prior_strength": 2.0,
+                   "reliability_forget": 0.95},
+        "llm_defense": {"injection_penalty": 0.25},
+        "movement_and_barriers": {"move_set": ["N", "S", "E", "W", "STAY"]},
+    })
+    assert build_hint_fuser(cfg) is not None

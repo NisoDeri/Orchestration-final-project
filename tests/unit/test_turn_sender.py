@@ -102,7 +102,7 @@ def test_legal_move_is_applied_sealed_and_sent() -> None:
     assert (sent.step, sent.terminal, sent.random_move) == (1, False, False)
     message = sent.message
     assert message.sender == "police" and message.step == 1
-    assert message.capture_claim == [1, 0]  # cop declares its landing cell on EVERY MOVE
+    assert message.capture_claim == [1, 0]  # cop declares its post-action cell every turn
     assert message.barrier_placed is None and message.win_claim is None
     assert message.commit == sent.record["commit"]
     assert message.smell_grid == rig.scent.snapshot()  # deposit+decay ran before send
@@ -127,12 +127,12 @@ def test_brain_bug_degrades_to_first_legal_move_flagged_random() -> None:
 
 
 def test_move_stay_normalizes_to_hold_wire_form() -> None:
-    rig = make_rig(Role.THIEF)
+    rig = make_rig(Role.POLICE)
     sent = rig.take(FakeBrain(move(Direction.STAY)))
     assert sent.move_type is MoveType.HOLD and sent.direction is None
     assert sent.record["payload"]["move"] == "HOLD:-"  # never "MOVE:STAY" (INTEROP §2.2)
     assert rig.state.position == (3, 3) and rig.state.step_number == 1  # STAY counts (A5)
-    assert sent.message.capture_claim is None  # HOLD is not a MOVE turn
+    assert sent.message.capture_claim == [3, 3]
 
 
 def test_barrier_turn_increments_my_step_counter() -> None:
@@ -142,7 +142,7 @@ def test_barrier_turn_increments_my_step_counter() -> None:
     assert (3, 4) in rig.state.barriers and rig.state.my_barriers == 1
     assert sent.step == 1 and rig.state.step_number == 1  # ruling A5: barrier = MY step
     assert sent.record["payload"]["move"] == "BARRIER:E"
-    assert sent.message.capture_claim is None  # a barrier turn claims nothing
+    assert sent.message.capture_claim == [3, 3]
     rig.fsm.advance(State.MY_TURN)
     follow_up = rig.take(FakeBrain(move(Direction.S)))
     assert follow_up.step == 2 and rig.state.step_number == 2  # the clock never skipped

@@ -83,7 +83,7 @@ class TurnMessage:
     commit: str  # sha256 hex of the sealed step payload (protocol_audit.sealed_payload)
     timestamp: str  # ISO-8601 UTC
     barrier_placed: list[int] | None = None  # cop's mandatory truthful [r, c] declaration
-    capture_claim: list[int] | None = None  # cop, EVERY MOVE turn: own landing cell
+    capture_claim: list[int] | None = None  # cop, every turn: own post-action cell
     claim_response: dict[str, Any] | None = None  # thief: {"claim": [r, c], "caught": bool}
     win_claim: dict[str, Any] | None = None  # thief: {"type": "survival"} at max_steps
 
