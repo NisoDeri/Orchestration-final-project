@@ -144,7 +144,8 @@ class BestteamServer:
         self.config_digest = config_digest
         self.mcp = FastMCP(f"nis-yar1-{ROLE_TO_WIRE[role]}-bestteam-adapter")
 
-        def negotiate(payload: dict) -> dict:
+        def negotiate(message: dict | None = None, payload: dict | None = None) -> dict:
+            payload = self._body(message, payload)
             self._require("negotiate", payload)
             self.inboxes.negotiate.put(payload)
             return {
@@ -159,7 +160,8 @@ class BestteamServer:
                 "step_zero": {},
             }
 
-        def receive_commit(payload: dict) -> dict:
+        def receive_commit(message: dict | None = None, payload: dict | None = None) -> dict:
+            payload = self._body(message, payload)
             self._require("receive_commit", payload)
             self.inboxes.receive_commit.put(payload)
             return {
@@ -169,19 +171,22 @@ class BestteamServer:
                 "kind": "ack",
             }
 
-        def receive_reveal(payload: dict) -> dict:
+        def receive_reveal(message: dict | None = None, payload: dict | None = None) -> dict:
+            payload = self._body(message, payload)
             self._require("receive_reveal", payload)
             if "nonce" in payload:
                 raise ValueError("receive_reveal must not contain nonce")
             self.inboxes.receive_reveal.put(payload)
             return {"step": payload.get("step"), "role": ROLE_TO_WIRE[self.role], "kind": "ack"}
 
-        def declare_barrier(payload: dict) -> dict:
+        def declare_barrier(message: dict | None = None, payload: dict | None = None) -> dict:
+            payload = self._body(message, payload)
             self._require("declare_barrier", payload)
             self.inboxes.declare_barrier.put(payload)
             return {"step": payload.get("step"), "role": ROLE_TO_WIRE[self.role], "kind": "ack"}
 
-        def capture_claim(payload: dict) -> dict:
+        def capture_claim(message: dict | None = None, payload: dict | None = None) -> dict:
+            payload = self._body(message, payload)
             self._require("capture_claim", payload)
             self.inboxes.capture_claim.put(payload)
             step = int(payload.get("step", 0) or 0)
@@ -196,7 +201,8 @@ class BestteamServer:
                 "kind": "capture_response",
             }
 
-        def final_reveal(payload: dict) -> dict:
+        def final_reveal(message: dict | None = None, payload: dict | None = None) -> dict:
+            payload = self._body(message, payload)
             self._require("final_reveal", payload)
             self.inboxes.final_reveal.put(payload)
             return {"step": payload.get("step"), "role": ROLE_TO_WIRE[self.role], "kind": "ack"}
@@ -210,6 +216,11 @@ class BestteamServer:
             (final_reveal, "final_reveal"),
         ):
             self.mcp.tool(fn, name=name)
+
+    @staticmethod
+    def _body(message: dict | None = None, payload: dict | None = None) -> dict:
+        body = payload if isinstance(payload, dict) else message
+        return body if isinstance(body, dict) else {}
 
     @staticmethod
     def _require(tool: str, payload: Any) -> None:
@@ -269,7 +280,12 @@ class BestteamClient:
         self.timeout = timeout
 
     def call(self, tool: str, payload: dict[str, Any]) -> dict[str, Any]:
-        return http_call_tool(self.url, tool, {"payload": payload}, self.timeout)
+        if tool != "negotiate":
+            return http_call_tool(self.url, tool, {"payload": payload}, self.timeout)
+        try:
+            return http_call_tool(self.url, tool, {"message": payload}, self.timeout)
+        except Exception:
+            return http_call_tool(self.url, tool, {"payload": payload}, self.timeout)
 
 
 @dataclass
