@@ -429,6 +429,20 @@ class FriendlySubgame:
             state = {"cop": list(self.cop), "thief": list(self.thief), "step": step}
             decision = self._decide()
             decision["step"] = step
+            before = {
+                "cop": list(self.cop),
+                "thief": list(self.thief),
+                "barriers": [list(cell) for cell in sorted(self.barriers)],
+            }
+            self._log_event(
+                "step_start",
+                step=step,
+                role=self.role,
+                cop=before["cop"],
+                thief=before["thief"],
+                our_move=decision["move"],
+                our_barrier=decision["barrier_cell"],
+            )
             next_pos = self._next_own_position(decision["move"])
             self.scent.full_turn(next_pos)
             scent_list = self._scent_list()
@@ -452,7 +466,14 @@ class FriendlySubgame:
                 "digest": commit_digest,
             }
             self.client.call("receive_commit", commit_payload)
+            self._log_event("waiting_for_commit", step=step, timeout_seconds=self.receive_timeout)
             their_commit = self.inboxes.receive_commit.get(timeout=self.receive_timeout)
+            self._log_event(
+                "commit_received",
+                step=step,
+                opponent_role=their_commit.get("role"),
+                digest=their_commit.get("digest"),
+            )
             reveal_payload = {
                 "kind": "reveal",
                 "step": step,
@@ -475,6 +496,7 @@ class FriendlySubgame:
                     },
                 )
             self.client.call("receive_reveal", reveal_payload)
+            self._log_event("waiting_for_reveal", step=step, timeout_seconds=self.receive_timeout)
             their_reveal = self.inboxes.receive_reveal.get(timeout=self.receive_timeout)
             self.records.append(
                 StepRecord(
@@ -494,9 +516,36 @@ class FriendlySubgame:
                 )
             )
             result = self._resolve_step(decision, their_reveal)
+            self._log_event(
+                "step_resolved",
+                step=step,
+                role=self.role,
+                before=before,
+                after={
+                    "cop": list(self.cop),
+                    "thief": list(self.thief),
+                    "barriers": [list(cell) for cell in sorted(self.barriers)],
+                },
+                our_move=decision["move"],
+                opponent_move=their_reveal.get("move"),
+                our_barrier=decision["barrier_cell"],
+                opponent_barrier=their_reveal.get("barrier_cell"),
+                outcome=None
+                if result is None
+                else {"result": result[0], "winner_role": result[1], "reason": result[2]},
+            )
             if result is not None:
                 return (*result, step + 1)
         return ("survival", "thief", "survival threshold reached", self.max_steps)
+
+    def _log_event(self, event: str, **fields: Any) -> None:
+        line = {
+            "ts": _now(),
+            "event": event,
+            "sub_game": self.subgame,
+            **fields,
+        }
+        print("GAME_PROGRESS " + json.dumps(line, ensure_ascii=False, sort_keys=True), flush=True)
 
     def _decide(self) -> dict[str, Any]:
         if self.role == "thief":
