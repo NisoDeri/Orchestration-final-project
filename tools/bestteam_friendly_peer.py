@@ -321,6 +321,7 @@ class FriendlySubgame:
         opponent_commit: str,
         seed: int,
         receive_timeout: float,
+        first_step_receive_timeout: float,
     ) -> None:
         self.role = role
         self.opp_role = "thief" if role == "police" else "police"
@@ -331,6 +332,7 @@ class FriendlySubgame:
         self.github_commit = github_commit
         self.opponent_commit = opponent_commit
         self.receive_timeout = float(receive_timeout)
+        self.first_step_receive_timeout = float(first_step_receive_timeout)
         self.rng = random.Random(seed + subgame)
         self.board = Board(
             config.game("board_and_agents.grid_size"),
@@ -348,6 +350,9 @@ class FriendlySubgame:
         self.final_nonces: dict[str, str] = {}
         self.their_final_reveal: dict[str, Any] | None = None
         self.started_at = _now()
+
+    def _receive_timeout_for_step(self, step: int) -> float:
+        return self.first_step_receive_timeout if step == 0 else self.receive_timeout
 
     def run(self) -> dict[str, Any]:
         self._negotiate()
@@ -467,9 +472,10 @@ class FriendlySubgame:
                 "role": ROLE_TO_WIRE[self.role],
                 "digest": commit_digest,
             }
+            step_timeout = self._receive_timeout_for_step(step)
             self.client.call("receive_commit", commit_payload)
-            self._log_event("waiting_for_commit", step=step, timeout_seconds=self.receive_timeout)
-            their_commit = self.inboxes.receive_commit.get(timeout=self.receive_timeout)
+            self._log_event("waiting_for_commit", step=step, timeout_seconds=step_timeout)
+            their_commit = self.inboxes.receive_commit.get(timeout=step_timeout)
             self._log_event(
                 "commit_received",
                 step=step,
@@ -498,8 +504,8 @@ class FriendlySubgame:
                     },
                 )
             self.client.call("receive_reveal", reveal_payload)
-            self._log_event("waiting_for_reveal", step=step, timeout_seconds=self.receive_timeout)
-            their_reveal = self.inboxes.receive_reveal.get(timeout=self.receive_timeout)
+            self._log_event("waiting_for_reveal", step=step, timeout_seconds=step_timeout)
+            their_reveal = self.inboxes.receive_reveal.get(timeout=step_timeout)
             self.records.append(
                 StepRecord(
                     step=step,
@@ -801,6 +807,7 @@ def run_block(args: argparse.Namespace, role: str, subgames: list[int]) -> list[
             opponent_commit=args.opponent_commit,
             seed=args.seed,
             receive_timeout=args.receive_timeout,
+            first_step_receive_timeout=args.first_step_receive_timeout,
         )
         row = game.run()
         rows.append(row)
@@ -824,8 +831,14 @@ def main() -> int:
     parser.add_argument(
         "--receive-timeout",
         type=float,
-        default=180.0,
-        help="seconds to wait for inbound bestteam commit/reveal calls per step",
+        default=10.0,
+        help="seconds to wait for inbound bestteam commit/reveal calls after step 0",
+    )
+    parser.add_argument(
+        "--first-step-receive-timeout",
+        type=float,
+        default=60.0,
+        help="seconds to wait for inbound bestteam commit/reveal calls on step 0 of each sub-game",
     )
     parser.add_argument("--seed", type=int, default=1234)
     parser.add_argument("--email-to", default="yardentziar@gmail.com")
