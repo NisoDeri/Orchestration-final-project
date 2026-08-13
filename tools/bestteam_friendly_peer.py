@@ -283,6 +283,7 @@ class FriendlySubgame:
         github_commit: str,
         opponent_commit: str,
         seed: int,
+        receive_timeout: float,
     ) -> None:
         self.role = role
         self.opp_role = "thief" if role == "police" else "police"
@@ -292,6 +293,7 @@ class FriendlySubgame:
         self.inboxes = inboxes
         self.github_commit = github_commit
         self.opponent_commit = opponent_commit
+        self.receive_timeout = float(receive_timeout)
         self.rng = random.Random(seed + subgame)
         self.board = Board(
             config.game("board_and_agents.grid_size"),
@@ -415,7 +417,7 @@ class FriendlySubgame:
                 "digest": commit_digest,
             }
             self.client.call("receive_commit", commit_payload)
-            their_commit = self.inboxes.receive_commit.get(timeout=40)
+            their_commit = self.inboxes.receive_commit.get(timeout=self.receive_timeout)
             reveal_payload = {
                 "kind": "reveal",
                 "step": step,
@@ -438,7 +440,7 @@ class FriendlySubgame:
                     },
                 )
             self.client.call("receive_reveal", reveal_payload)
-            their_reveal = self.inboxes.receive_reveal.get(timeout=40)
+            their_reveal = self.inboxes.receive_reveal.get(timeout=self.receive_timeout)
             self.records.append(
                 StepRecord(
                     step=step,
@@ -700,6 +702,7 @@ def run_block(args: argparse.Namespace, role: str, subgames: list[int]) -> list[
             github_commit=args.github_commit,
             opponent_commit=args.opponent_commit,
             seed=args.seed,
+            receive_timeout=args.receive_timeout,
         )
         row = game.run()
         rows.append(row)
@@ -720,6 +723,12 @@ def main() -> int:
     parser.add_argument("--opponent-commit", default=BESTTEAM_COMMIT)
     parser.add_argument("--github-commit", default=_git_commit())
     parser.add_argument("--timeout", type=float, default=40.0)
+    parser.add_argument(
+        "--receive-timeout",
+        type=float,
+        default=180.0,
+        help="seconds to wait for inbound bestteam commit/reveal calls per step",
+    )
     parser.add_argument("--seed", type=int, default=1234)
     parser.add_argument("--email-to", default="yardentziar@gmail.com")
     parser.add_argument("--email-from", default="yardentziar@gmail.com")
