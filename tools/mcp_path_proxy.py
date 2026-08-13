@@ -29,7 +29,7 @@ HOP_HEADERS = {
     "upgrade",
 }
 TOOL_ARGUMENT_KEYS = {
-    "negotiate": "message",
+    "negotiate": ("message", "payload"),
     "receive_turn": "message",
     "submit_audit": "payload",
     "receive_control": "message",
@@ -95,11 +95,16 @@ def _parse_subgame_routes(text: str, role: str) -> dict[int, str]:
 
 
 def _message_body(tool: str, arguments: dict) -> dict | None:
-    key = TOOL_ARGUMENT_KEYS.get(tool)
-    if key is None:
+    keys = TOOL_ARGUMENT_KEYS.get(tool)
+    if keys is None:
         return None
-    body = arguments.get(key)
-    return body if isinstance(body, dict) else None
+    if isinstance(keys, str):
+        keys = (keys,)
+    for key in keys:
+        body = arguments.get(key)
+        if isinstance(body, dict):
+            return body
+    return None
 
 
 def role_for_tool_call(tool: str, arguments: dict) -> str | None:
