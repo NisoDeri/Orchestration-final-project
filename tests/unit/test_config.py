@@ -125,6 +125,72 @@ class TestValidateAgreement:
         assert cfg.game("pheromones.dialect") == "reference"
         assert cfg.game("crypto.dialect") == "reference"
 
+    def test_partner_v12_game_json_without_min_center_loads(self):
+        game = {
+            "agreed_between": ["bestteam", "nis-yar1"],
+            "board_and_agents": {
+                "axis_origin_corner": "top-left",
+                "axis_start_index": 0,
+                "cop_start": [0, 0],
+                "grid_size": 7,
+                "num_agents": 2,
+                "thief_start": [3, 3],
+            },
+            "capture": {
+                "resolution": "after_moves",
+                "stay_counts_as_move": False,
+                "swap_is_capture": True,
+            },
+            "movement_and_barriers": {
+                "max_barriers": 14,
+                "max_moves": 35,
+                "move_set": ["N", "S", "E", "W", "STAY"],
+                "seal_barrier_cell": True,
+                "survival_threshold": 35,
+            },
+            "network_and_league": {
+                "diversity_reward": 10,
+                "max_games_per_team": 10,
+                "min_games_to_pass": 2,
+                "num_games": 6,
+                "response_timeout_sec": 30,
+                "token_budget_per_series": 200000,
+                "watchdog_timeout_sec": 60,
+            },
+            "pheromones": {
+                "decay_model": "multiplicative",
+                "field_includes_current_turn": True,
+                "pheromone_center_intensity": 0.9,
+                "pheromone_decay": 0.1,
+                "pheromone_grid_size": 5,
+                "seal_scent_digest": True,
+            },
+            "rate_limiter_gatekeeper": {
+                "concurrent_requests": 2,
+                "max_retries": 3,
+                "queue_depth": 100,
+                "requests_per_minute": 30,
+                "retry_backoff_sec": 5,
+            },
+            "schema_version": "1.2",
+            "scoring": {
+                "capture_cop": 20,
+                "capture_thief": 5,
+                "survival_cop": 5,
+                "survival_thief": 10,
+                "technical_loss": 0,
+                "tie_score": 2,
+            },
+            "version": "1.00",
+            "world": {"hint_max_words": 15, "map_area": "New York"},
+        }
+        loaded = ConfigManager(game_terms=game, private_terms={}, rate_limits={})
+
+        loaded.validate_agreement()
+        assert loaded.game("pheromones.pheromone_min_center_intensity") == 0.5
+        assert loaded.game("pheromones.dialect") == "reference"
+        assert loaded.game("crypto.dialect") == "reference"
+
 
 class TestNamingAndHash:
     def test_per_game_config_name_zero_padded(self):

@@ -106,6 +106,7 @@ def test_legal_move_is_applied_sealed_and_sent() -> None:
     assert message.barrier_placed is None and message.win_claim is None
     assert message.commit == sent.record["commit"]
     assert message.smell_grid == rig.scent.snapshot()  # deposit+decay ran before send
+    assert len(sent.record["payload"]["scent_digest"]) == 64
     assert sent.record["payload"]["move"] == "MOVE:S"
     assert sent.record["payload"]["state"] == rig.state.state_string()
     assert rig.inboxes.turns.get_nowait() == message.to_wire()  # delivered on the fake wire
@@ -142,6 +143,7 @@ def test_barrier_turn_increments_my_step_counter() -> None:
     assert (3, 4) in rig.state.barriers and rig.state.my_barriers == 1
     assert sent.step == 1 and rig.state.step_number == 1  # ruling A5: barrier = MY step
     assert sent.record["payload"]["move"] == "BARRIER:E"
+    assert sent.record["payload"]["barrier_cell"] == [3, 4]
     assert sent.message.capture_claim is None  # a barrier turn claims nothing
     rig.fsm.advance(State.MY_TURN)
     follow_up = rig.take(FakeBrain(move(Direction.S)))
@@ -153,6 +155,7 @@ def test_barrier_on_own_cell_travels_as_barrier_stay() -> None:
     sent = rig.take(FakeBrain(decision(MoveType.BARRIER, Direction.STAY)))
     assert sent.barrier_cell == (2, 2)  # own-cell placement: the book's 5th option (A3)
     assert sent.record["payload"]["move"] == "BARRIER:STAY"
+    assert sent.record["payload"]["barrier_cell"] == [2, 2]
 
 
 def test_thief_barrier_decision_degrades_to_a_legal_move() -> None:
@@ -235,6 +238,15 @@ def test_thief_win_claim_fires_exactly_at_the_survival_threshold() -> None:
     second = rig.take(FakeBrain(move(Direction.S)))
     assert second.message.win_claim == {"type": "survival"}  # my OWN counter hit max (A5)
     assert second.terminal and rig.fsm.state is State.GAME_OVER
+
+
+def test_stay_can_be_excluded_from_survival_clock() -> None:
+    rig = make_rig(Role.THIEF, survival_threshold=1, stay_counts_as_move=False)
+    sent = rig.take(FakeBrain(move(Direction.STAY)))
+
+    assert sent.step == 1 and rig.state.step_number == 1  # wire turn sequence still advances
+    assert sent.record["payload"]["move"] == "HOLD:-"
+    assert sent.message.win_claim is None and not sent.terminal
 
 
 def test_police_never_claims_survival() -> None:

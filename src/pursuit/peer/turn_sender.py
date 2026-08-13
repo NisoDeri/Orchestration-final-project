@@ -11,6 +11,8 @@ under a wall-clock bound (peer/brain_clock) so a hang degrades to a safe HOLD. F
 
 from __future__ import annotations
 
+import hashlib
+import json
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
@@ -49,13 +51,16 @@ class TurnSender:
 
     def __init__(self, role: Role | str, *, barriers_max: int, survival_threshold: int,
                  hint_max_words: int, setting: str, brain_deadline: float | None = None,
-                 model: str = "stub", now: Any = None) -> None:
+                 model: str = "stub", stay_counts_as_move: bool = True,
+                 now: Any = None) -> None:
         self.role = Role(role)  # every game parameter arrives from the signed config
         self.barriers_max, self.survival_threshold = int(barriers_max), int(survival_threshold)
         self.hint_max_words, self.setting = int(hint_max_words), setting
         self.brain_deadline = brain_deadline  # wall-clock bound on the move (peer/brain_clock)
         self.model = str(model or "stub")
-        self.step_counter = rules.StepCounter()  # MY turn clock — ruling A5 semantics
+        self.stay_counts_as_move = bool(stay_counts_as_move)
+        self.step_counter = rules.StepCounter()  # MY turn sequence number
+        self.survival_counter = rules.StepCounter()  # thief survival clock
         self._now = now or (lambda: datetime.now(UTC).isoformat())
 
     def take_turn(self, brain: Any, own_state: Any, belief: Any, scent_mine: Any, sealer: Any,
@@ -82,17 +87,23 @@ class TurnSender:
         own_state.step_number = step  # BARRIER / jailed-HOLD never route through apply_step
         hint = lint_hint(hint, self.hint_max_words)  # BEFORE sealing: wire == audited bytes
         scent_mine.full_turn(own_state.position)  # dialect-pinned cadence, then snapshot
+        scent_snapshot = scent_mine.snapshot()
+        extra = {"prompt_discussion": {"llm_prompt": prompt, "llm_reasoning": reasoning,
+                                       "bluff_classification": verdict},
+                 "model": self.model,
+                 "response_seconds": seconds, "random_move": random_move,
+                 "scent_digest": _scent_digest(scent_snapshot)}
+        if barrier_cell is not None:
+            extra["barrier_cell"] = list(barrier_cell)
         record = sealer.seal_step(sealed_payload(
             own_state.state_string(), format_move_string(move_type, direction), verdict, hint,
-            step, self.role.value,
-            extra={"prompt_discussion": {"llm_prompt": prompt, "llm_reasoning": reasoning,
-                                         "bluff_classification": verdict},
-                   "model": self.model,
-                   "response_seconds": seconds, "random_move": random_move}))
+            step, self.role.value, extra=extra))
+        if self.role is Role.THIEF and self._survival_move_counts(move_type):
+            self.survival_counter.record_valid_move()
         survived = (self.role is Role.THIEF and not concede
-                    and rules.survived(self.step_counter, self.survival_threshold))
+                    and rules.survived(self.survival_counter, self.survival_threshold))
         message = TurnMessage(
-            step=step, sender=self.role.value, hint=hint, smell_grid=scent_mine.snapshot(),
+            step=step, sender=self.role.value, hint=hint, smell_grid=scent_snapshot,
             commit=record["commit"], timestamp=self._now(),
             barrier_placed=None if barrier_cell is None else list(barrier_cell),
             capture_claim=(list(own_state.position)  # cop, EVERY MOVE turn (INTEROP §2.2)
@@ -149,3 +160,12 @@ class TurnSender:
         elif own_state.board.step(own_state.position, Direction.STAY, own_state.barriers):
             own_state.apply_step(Direction.STAY)  # HOLD with STAY legal: the documented path
         return None  # jailed HOLD: no state change; the step still counts (A5, caller bumps)
+
+    def _survival_move_counts(self, move_type: MoveType) -> bool:
+        return self.stay_counts_as_move or move_type is not MoveType.HOLD
+
+
+def _scent_digest(snapshot: dict[str, float]) -> str:
+    """SHA-256 over the exact canonical scent snapshot emitted in this turn."""
+    data = json.dumps(snapshot, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+    return hashlib.sha256(data.encode("utf-8")).hexdigest()

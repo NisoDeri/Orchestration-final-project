@@ -196,6 +196,7 @@ def _runtime_game_terms(game_terms: dict[str, Any]) -> dict[str, Any]:
         and "min_center_intensity" in pheromones
     ):
         pheromones["pheromone_min_center_intensity"] = pheromones["min_center_intensity"]
+    pheromones.setdefault("pheromone_min_center_intensity", 0.5)
     pheromones.setdefault("dialect", "reference")
     game.setdefault("crypto", {}).setdefault("dialect", "reference")
     return game

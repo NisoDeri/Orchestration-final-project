@@ -105,6 +105,14 @@ def logical_subgame_numbers(config: Any, role: Role, count: int, alternate: bool
     if alternate:
         return list(range(1, count + 1))
     try:
+        explicit = config.private("game.fixed_role_subgames")
+    except Exception:  # noqa: BLE001 - optional opponent-specific topology knob
+        explicit = None
+    if isinstance(explicit, list):
+        numbers = [int(n) for n in explicit if isinstance(n, int) and not isinstance(n, bool)]
+        if numbers:
+            return numbers[:count]
+    try:
         pair = sorted(str(gid) for gid in config.game("agreed_between"))
         signed_total = int(config.game("network_and_league.num_games"))
         my_gid = str(config.private("game.group_id"))

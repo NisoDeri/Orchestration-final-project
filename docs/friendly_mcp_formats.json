@@ -1,0 +1,242 @@
+{
+  "purpose": "Shared JSON formats for a non-counted friendly P2P match between nis-yar1 and bestteam/Itay.",
+  "source_game_json": "C:\\Users\\User\\Downloads\\game.json",
+  "compatibility_notes": [
+    "The friendly game.json format below follows Itay/bestteam schema_version 1.2.",
+    "Do not add or remove fields after both sides compute the game_json_sha256.",
+    "nis-yar1 runtime accepts this format even though it omits crypto.dialect and pheromone_min_center_intensity; those are normalized internally to reference defaults.",
+    "Both teams should hash the exact same canonical sorted-key JSON before starting.",
+    "bestteam does not support receive_control; coordinate readiness and terms in chat."
+  ],
+  "mcp_endpoint": {
+    "transport": "MCP streamable HTTP",
+    "path": "/mcp",
+    "required_tools": [
+      "negotiate",
+      "receive_turn",
+      "submit_audit"
+    ],
+    "tool_argument_shapes": {
+      "negotiate": {
+        "message": {}
+      },
+      "receive_turn": {
+        "message": {}
+      },
+      "submit_audit": {
+        "payload": {}
+      },
+      "receive_control_optional": {
+        "message": {
+          "kind": "status",
+          "sender": "police",
+          "sub_game_number": 1,
+          "status": "READY",
+          "step_budget": 30.0,
+          "payload": {}
+        }
+      }
+    }
+  },
+  "control_message_schema": {
+    "type": "object",
+    "required": [
+      "kind",
+      "sender"
+    ],
+    "additionalProperties": true,
+    "properties": {
+      "kind": {
+        "type": "string",
+        "enum": [
+          "enable",
+          "status",
+          "restart",
+          "quit"
+        ]
+      },
+      "sender": {
+        "type": "string",
+        "enum": [
+          "police",
+          "thief"
+        ]
+      },
+      "sub_game_number": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "minimum": 1
+      },
+      "status": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "step_budget": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "payload": {
+        "type": [
+          "object",
+          "null"
+        ]
+      }
+    }
+  },
+  "recommended_control_messages": {
+    "hello": {
+      "kind": "status",
+      "sender": "police",
+      "sub_game_number": 1,
+      "status": "HELLO",
+      "step_budget": 30.0,
+      "payload": {
+        "from_group_id": "nis-yar1",
+        "to_group_id": "bestteam",
+        "mcp_url": "https://<our-public-domain>/mcp",
+        "message": "Hello. This is a non-counted friendly coordination ping. Please ACK over receive_control."
+      }
+    },
+    "terms_proposed": {
+      "kind": "status",
+      "sender": "police",
+      "sub_game_number": 1,
+      "status": "TERMS_PROPOSED",
+      "step_budget": 30.0,
+      "payload": {
+        "from_group_id": "nis-yar1",
+        "to_group_id": "bestteam",
+        "mode": "friendly",
+        "game_json_schema_version": "1.2",
+        "game_json_sha256": "<sha256-of-exact-agreed-game-json>",
+        "scent_dialect": "multiplicative_book_v1",
+        "our_starting_role_for_odd_subgames": "thief",
+        "our_commit_sha": "<40-char-git-sha>",
+        "opponent_expected_sha": "<40-char-git-sha-or-null>",
+        "our_public_mcp_url": "https://<our-public-domain>/mcp",
+        "friendly_email_recipients": [
+          "yardentziar@gmail.com",
+          "<bestteam-email>"
+        ],
+        "counted": false,
+        "lecturer_email_allowed": false
+      }
+    },
+    "terms_ack": {
+      "kind": "status",
+      "sender": "thief",
+      "sub_game_number": 1,
+      "status": "TERMS_ACK",
+      "step_budget": 30.0,
+      "payload": {
+        "from_group_id": "bestteam",
+        "to_group_id": "nis-yar1",
+        "mode": "friendly",
+        "game_json_schema_version": "1.2",
+        "game_json_sha256": "<same-sha256>",
+        "scent_dialect": "multiplicative_book_v1",
+        "opponent_public_mcp_url": "https://<bestteam-public-domain>/mcp",
+        "opponent_commit_sha": "<40-char-git-sha>",
+        "ready_to_start": true
+      }
+    }
+  },
+  "friendly_game_json_template": {
+    "agreed_between": [
+      "bestteam",
+      "nis-yar1"
+    ],
+    "board_and_agents": {
+      "axis_origin_corner": "top-left",
+      "axis_start_index": 0,
+      "cop_start": [
+        0,
+        0
+      ],
+      "grid_size": 7,
+      "num_agents": 2,
+      "thief_start": [
+        3,
+        3
+      ]
+    },
+    "capture": {
+      "resolution": "after_moves",
+      "stay_counts_as_move": false,
+      "swap_is_capture": true
+    },
+    "movement_and_barriers": {
+      "max_barriers": 14,
+      "max_moves": 35,
+      "move_set": [
+        "N",
+        "S",
+        "E",
+        "W",
+        "STAY"
+      ],
+      "seal_barrier_cell": true,
+      "survival_threshold": 35
+    },
+    "network_and_league": {
+      "diversity_reward": 10,
+      "max_games_per_team": 10,
+      "min_games_to_pass": 2,
+      "num_games": 6,
+      "response_timeout_sec": 30,
+      "token_budget_per_series": 200000,
+      "watchdog_timeout_sec": 60
+    },
+    "pheromones": {
+      "decay_model": "multiplicative",
+      "field_includes_current_turn": true,
+      "pheromone_center_intensity": 0.9,
+      "pheromone_decay": 0.1,
+      "pheromone_grid_size": 5,
+      "seal_scent_digest": true
+    },
+    "rate_limiter_gatekeeper": {
+      "concurrent_requests": 2,
+      "max_retries": 3,
+      "queue_depth": 100,
+      "requests_per_minute": 30,
+      "retry_backoff_sec": 5
+    },
+    "schema_version": "1.2",
+    "scoring": {
+      "capture_cop": 20,
+      "capture_thief": 5,
+      "survival_cop": 5,
+      "survival_thief": 10,
+      "technical_loss": 0,
+      "tie_score": 2
+    },
+    "version": "1.00",
+    "world": {
+      "hint_max_words": 15,
+      "map_area": "New York"
+    }
+  },
+  "friendly_result_requirements": {
+    "mode": "friendly",
+    "send_to_lecturer": false,
+    "email_sender": "yardentziar@gmail.com",
+    "subject_template": "P2P league SERIES result - <game_id> - winner=<winner_group> - <groupA>:<points> <groupB>:<points>",
+    "body": "Full pretty-printed result JSON only.",
+      "attachment": "Exactly one file named result_<game_id>.json.",
+      "friendly_subject_template": "FRIENDLY P2P league SERIES result - <game_id> - winner=<winner_group> - <groupA>:<points> <groupB>:<points>",
+      "validation": [
+      "One aggregated result over all six sub-games.",
+      "links.github includes both teams.",
+      "Every row has full 40-character github_commit values for both groups.",
+      "Totals recompute from rows.",
+      "Audits are true for clean games."
+    ]
+  }
+}

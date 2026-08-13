@@ -150,6 +150,20 @@ class TestFakeOpponentSeries:
         assert logical_subgame_numbers(cfg, Role.THIEF, 3, alternate=False) == [1, 3, 5]
         assert logical_subgame_numbers(cfg, Role.POLICE, 3, alternate=False) == [2, 4, 6]
 
+    def test_fixed_role_explicit_subgame_numbers_override_pairing_window(self, tmp_path):
+        cfg_dir = write_config(tmp_path / "cfg", num_games=6)
+        text = (cfg_dir / "game.toml").read_text(encoding="utf-8")
+        (cfg_dir / "game.toml").write_text(
+            text.replace(
+                'sub_game_number = 1\n',
+                'sub_game_number = 1\nfixed_role_subgames = [4, 5, 6]\n',
+            ),
+            encoding="utf-8",
+        )
+        cfg = ConfigManager.load(cfg_dir)
+
+        assert logical_subgame_numbers(cfg, Role.POLICE, 3, alternate=False) == [4, 5, 6]
+
     def test_fixed_role_artifact_emit_merges_sibling_endpoint_logs(self, tmp_path):
         cfg = ConfigManager.load(write_config(tmp_path / "cfg", num_games=6))
         out_dir = tmp_path / "logs" / GID

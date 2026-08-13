@@ -28,6 +28,13 @@ from pursuit.peer.turn_sender import TurnSender
 from pursuit.shared.config import scent_params
 
 
+def _optional_game(config: Any, key_path: str, default: Any) -> Any:
+    try:
+        return config.game(key_path)
+    except Exception:  # noqa: BLE001 - partner schema variants may omit optional terms
+        return default
+
+
 class AgreementsView:
     def __init__(self, inboxes: Any) -> None:  # handshake 'agreements' seam over negotiation
         self.agreements, self._inbox = self, inboxes.negotiation
@@ -73,7 +80,8 @@ class PeerRuntime:
             survival_threshold=game(f"{movement}.survival_threshold"),
             hint_max_words=game("world.hint_max_words"), setting=game("world.map_area"),
             brain_deadline=float(config.private("network.brain_deadline_seconds")),
-            model=str(config.private("trash_talk.model")))
+            model=str(config.private("trash_talk.model")),
+            stay_counts_as_move=bool(_optional_game(config, "capture.stay_counts_as_move", True)))
         self.turn_timeout = float(config.private("network.turn_timeout_seconds"))
         self.audit_timeout = float(config.private("network.audit_send_timeout_seconds"))
 

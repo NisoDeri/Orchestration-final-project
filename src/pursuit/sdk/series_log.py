@@ -370,7 +370,7 @@ def maybe_email(config: Any, summary: dict[str, Any], result: dict[str, Any]) ->
         from pursuit.infra.email import GmailSender
         from pursuit.infra.gatekeeper import Gatekeeper
 
-        subject = _report_subject(result)
+        subject = _report_subject(result, friendly=_game_mode(config) == "friendly")
         recipient = _mode_recipient(config)
         sender = _private_default(config, "email.sender", None)
         credentials_dir = _private_default(config, "email.credentials_dir", "secrets")
@@ -389,10 +389,11 @@ def _private_default(config: Any, key_path: str, default: Any) -> Any:
         return default
 
 
-def _report_subject(result: dict[str, Any]) -> str:
+def _report_subject(result: dict[str, Any], *, friendly: bool = False) -> str:
     game_id = str(result.get("game_id", ""))
     final = dict(result.get("final_result", {}) or {})
     totals = dict(final.get("total_score", {}) or {})
     verdict = "series_tie" if final.get("series_tie") else f"winner={final.get('winner_group')}"
     score = " ".join(f"{gid}:{totals[gid]}" for gid in sorted(totals))
-    return f"P2P league SERIES result - {game_id} - {verdict} - {score}"
+    prefix = "FRIENDLY P2P league SERIES result" if friendly else "P2P league SERIES result"
+    return f"{prefix} - {game_id} - {verdict} - {score}"
