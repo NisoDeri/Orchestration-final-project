@@ -18,8 +18,9 @@ from typing import Any
 from pursuit.constants import Role
 from pursuit.exceptions import ConfigError
 from pursuit.strategy.base import BrainBase, TalkLike
+from pursuit.strategy.adaptive_police import AdaptivePoliceBrain
 from pursuit.strategy.center_thief import CenterThief
-from pursuit.strategy.police import InterceptorPoliceBrain
+from pursuit.strategy.police import InterceptorPoliceBrain  # noqa: F401 (selectable fallback)
 from pursuit.strategy.talk import TemplateTalk
 from pursuit.strategy.thief import SurvivorThiefBrain  # noqa: F401 (selectable fallback)
 
@@ -29,7 +30,7 @@ _FALLBACK_SETTING = ""
 _FALLBACK_HINT_MAX_WORDS = 15
 
 _DEFAULT_BRAINS: dict[Role, type[BrainBase]] = {
-    Role.POLICE: InterceptorPoliceBrain,
+    Role.POLICE: AdaptivePoliceBrain,  # chase + cage: catches centre-players 100% vs 0% (loss-mined)
     Role.THIEF: CenterThief,  # centre-control evader: survives a catching cop 100% vs 0% (loss-mined)
 }
 _SELECTOR_KEYS = {Role.POLICE: "strategy.police_class", Role.THIEF: "strategy.thief_class"}
