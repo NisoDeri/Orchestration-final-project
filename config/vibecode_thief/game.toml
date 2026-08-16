@@ -69,7 +69,7 @@ audit_send_timeout_seconds = 10
 recipient_friendly = "agentsorch@gmail.com, nissimderi123@gmail.com"
 recipient_counted = "rmisegal+uoh26finalgame@gmail.com"
 sender = "nissimderi123@gmail.com"
-enabled = true
+enabled = false   # COUNTED: no auto-send; manual single report to lecturer AFTER both confirm 6/6
 credentials_dir = "secrets"    # git-ignored; HW6 OAuth send-only token
 
 [paths]

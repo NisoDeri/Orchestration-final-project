@@ -43,3 +43,6 @@ __pycache__/
 _verify_claim.py
 readiness-review.html
 scout/
+src/pursuit/strategy/clones/
+src/pursuit/strategy/fast/
+src/pursuit/strategy/tune_candidates.py
