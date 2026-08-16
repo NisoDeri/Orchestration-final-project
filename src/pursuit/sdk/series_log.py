@@ -294,6 +294,16 @@ def emit_artifacts(config: Any, summary: dict[str, Any], logs: list[dict[str, An
             counted = 0
         is_counted_game = _game_mode(config) == "counted"  # +1 counter + App.F diversity
         opp = _opponent(summary, my_gid)
+        # SINGLE-EMITTER GUARD: capture THIS peer's own windows BEFORE the sibling merge.
+        # In a two-process fixed-role run both peers build the full merged report, but only
+        # the one that played the FINAL window (num_games) may email it — otherwise the
+        # opponent (and the lecturer, on a counted game) receives duplicate reports.
+        try:
+            _num_games = int(config.game("network_and_league.num_games"))
+        except Exception:  # noqa: BLE001
+            _num_games = len(summary.get("sub_games", []))
+        _own_windows = {int(s.get("sub_game_number", 0)) for s in summary.get("sub_games", [])}
+        is_report_emitter = _num_games in _own_windows
         summary, logs = _merged_summary(config, summary, logs, out_dir, my_gid, opp)
         artifact_sysinfo = dict(sysinfo)
         try:
@@ -329,7 +339,7 @@ def emit_artifacts(config: Any, summary: dict[str, Any], logs: list[dict[str, An
                    for i, sub in enumerate(subs)]
         log_arts = [build_log_artifact(doc) for doc in logs]
         paths = write_artifacts(out_dir, declaration, configs, result, log_arts)
-        maybe_email(config, summary, result)
+        maybe_email(config, summary, result, is_emitter=is_report_emitter)
         return paths
     except Exception:  # noqa: BLE001 — reporting must never crash a completed series
         return []
@@ -356,10 +366,16 @@ def _mode_recipient(config: Any) -> Any:
                             _private_default(config, "email.recipient", None))
 
 
-def maybe_email(config: Any, summary: dict[str, Any], result: dict[str, Any]) -> None:
-    """Opt-in (private ``email.enabled``): send the result artifact via the email Gatekeeper."""
+def maybe_email(config: Any, summary: dict[str, Any], result: dict[str, Any],
+                is_emitter: bool = True) -> None:
+    """Opt-in (private ``email.enabled``): send the result artifact via the email Gatekeeper.
+
+    ``is_emitter`` is the single-emitter guard: a two-process fixed-role run passes False on
+    every peer except the one that played the final window, so exactly ONE report is filed
+    (critical at the lecturer address on a counted game). Single-process runs pass True.
+    """
     try:
-        if not bool(config.private("email.enabled")):
+        if not is_emitter or not bool(config.private("email.enabled")):
             return
         try:
             expected = int(config.game("network_and_league.num_games"))

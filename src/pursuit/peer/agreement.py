@@ -35,6 +35,7 @@ def _optional_private(config: ConfigManager, path: str, default: Any) -> Any:
 
 def build_identity(config: ConfigManager, public_pem: bytes) -> dict[str, Any]:
     """The unsigned identity block (INTEROP §2.1) + D14/rule-37 additive keys."""
+    counted = int(_optional_private(config, "game.counted_games_so_far", 0))
     identity: dict[str, Any] = {
         "group_id": config.private("game.group_id"),
         "group_name": config.private("game.group_name"),
@@ -43,8 +44,15 @@ def build_identity(config: ConfigManager, public_pem: bytes) -> dict[str, Any]:
         "mcp_servers": config.private("game.mcp_servers"),
         "llm_model": config.private("trash_talk.model"),
         "ed25519_public_key": public_pem.decode("ascii"),
-        "counted_games_so_far": int(_optional_private(config, "game.counted_games_so_far", 0)),
+        # Three spellings of the same counter — different league peers read different keys;
+        # sending all three means an opponent never has to default our prior count to 0.
+        "counted_games_so_far": counted,
+        "counted_games_played": counted,
+        "counted_matches_played": counted,
     }
+    commit = _optional_private(config, "game.github_commit", None)
+    if commit is not None:  # so the opponent's report records OUR commit, not "unknown"
+        identity["github_commit"] = str(commit)
     spec = _optional_private(config, "game.spec", None)  # step0 owns full HW collection
     if spec is not None:
         identity["spec"] = spec

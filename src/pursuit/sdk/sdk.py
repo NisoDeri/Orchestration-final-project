@@ -136,6 +136,7 @@ def run_peer(config_dir: str | Path, role: Role | str, num_games: int | None = N
     inboxes = inboxes if inboxes is not None else PeerInboxes()
     sysinfo = sysinfo if sysinfo is not None else collect()
     commit = github_commit if github_commit is not None else get_git_commit(_REPO_ROOT)
+    config.set_private("game.github_commit", commit)  # so build_identity carries it on the wire
     opponent_thread = None
     if fake_opponent:
         transport, opponent_thread = _fake_opponent(config, my_role, inboxes, games,

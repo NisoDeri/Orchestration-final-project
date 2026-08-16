@@ -2,7 +2,7 @@
 
 from types import SimpleNamespace
 
-from pursuit.sdk.series_log import _game_mode, _mode_recipient
+from pursuit.sdk.series_log import _game_mode, _mode_recipient, maybe_email
 
 
 def _cfg(private: dict):
@@ -50,3 +50,25 @@ def test_unknown_mode_falls_back_to_friendly():
 def test_legacy_single_recipient_still_honored():
     cfg = _cfg({"email": {"recipient": "solo@x.com"}})
     assert _mode_recipient(cfg) == "solo@x.com"
+
+
+def test_single_emitter_guard_blocks_non_final_peer():
+    # is_emitter=False must short-circuit BEFORE any config read, so a non-final fixed-role
+    # peer never files a (duplicate) report even with email fully enabled. (maybe_email
+    # swallows exceptions, so we observe that config was never touched, not a raise.)
+    calls = []
+
+    class _Track:
+        def private(self, path):
+            calls.append(path)
+            return True  # would read as email.enabled
+
+        def game(self, path):
+            calls.append(path)
+            return 6
+
+    maybe_email(_Track(), {"num_sub_games": 6}, {"num_sub_games": 6}, is_emitter=False)
+    assert calls == []  # guard short-circuited before reading email.enabled
+
+    maybe_email(_Track(), {"num_sub_games": 6}, {"num_sub_games": 6}, is_emitter=True)
+    assert calls  # the final peer DOES proceed to read config (and attempt a send)
