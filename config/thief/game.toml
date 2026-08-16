@@ -41,7 +41,7 @@ jitter_epsilon = 1.25         # private-rng tie break among near-equal safe move
 
 [strategy]
 police_class = "pursuit.strategy.police:InterceptorPoliceBrain"
-thief_class = "pursuit.strategy.thief:SurvivorThiefBrain"
+thief_class = "pursuit.strategy.center_thief:CenterThief"
 profile_opponent = true   # E2 cross-sub-game lie-profiler seeds the next sub-game's r_0
 fuse_hints = true         # E1 live hint->belief fusion (book p.63); gated + non-fatal
 

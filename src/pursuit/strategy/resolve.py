@@ -18,9 +18,10 @@ from typing import Any
 from pursuit.constants import Role
 from pursuit.exceptions import ConfigError
 from pursuit.strategy.base import BrainBase, TalkLike
+from pursuit.strategy.center_thief import CenterThief
 from pursuit.strategy.police import InterceptorPoliceBrain
 from pursuit.strategy.talk import TemplateTalk
-from pursuit.strategy.thief import SurvivorThiefBrain
+from pursuit.strategy.thief import SurvivorThiefBrain  # noqa: F401 (selectable fallback)
 
 #: INTEROP §2.1: `setting` and `hint_max_words` carry protocol-pinned defaults
 #: ("" and 15) when the negotiated terms omit them — the only sanctioned fallbacks.
@@ -29,7 +30,7 @@ _FALLBACK_HINT_MAX_WORDS = 15
 
 _DEFAULT_BRAINS: dict[Role, type[BrainBase]] = {
     Role.POLICE: InterceptorPoliceBrain,
-    Role.THIEF: SurvivorThiefBrain,
+    Role.THIEF: CenterThief,  # centre-control evader: survives a catching cop 100% vs 0% (loss-mined)
 }
 _SELECTOR_KEYS = {Role.POLICE: "strategy.police_class", Role.THIEF: "strategy.thief_class"}
 _TUNING_TABLES: dict[Role, tuple[str, frozenset[str]]] = {
