@@ -1,0 +1,4 @@
+# OPPONENT (vibecode) BEHAVIOR — mined from revealed trajectories
+
+THEIR COP (catches our thief, n=90 moves): greedy-chase=43%, lead/predict=43%, places-barrier=0%. Capture speeds(steps): [11, 11, 11, 11, 11, 11, 11, 11, 11]
+THEIR THIEF (evades our cop, n=297 moves): greedy-flee=36%, lead-evade(flee predicted cop)=36%, avg mobility=4.1

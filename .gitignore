@@ -46,3 +46,4 @@ scout/
 src/pursuit/strategy/clones/
 src/pursuit/strategy/fast/
 src/pursuit/strategy/tune_candidates.py
+src/pursuit/strategy/v2/
