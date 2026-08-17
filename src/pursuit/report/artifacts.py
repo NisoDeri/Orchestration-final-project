@@ -67,6 +67,12 @@ def build_declaration(sysinfo: Mapping[str, Any], group_id: str,
         "repos": dict(repos),
         "llm_model": model,
         "llm_provider": sysinfo.get("llm_provider"),
+        "token_accounting_note": (
+            "Local token totals are legitimately 0 because llm_provider='template' makes "
+            "no LLM calls. Peer token totals are read from verified per-step disclosures."
+            if sysinfo.get("llm_provider") == "template"
+            else "Token totals record actual LLM usage from per-step disclosures."
+        ),
         "os": sysinfo.get("os"),
         "hardware_spec": hardware_spec(sysinfo),
     }

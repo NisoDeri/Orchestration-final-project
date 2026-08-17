@@ -43,17 +43,19 @@ def series_summary() -> dict:
             {"sub_game_number": 1, "roles": {"nis-yar1": "police", "seg-team": "thief"},
              "result": "capture", "winner_role": "police", "game_uid": "uid-1",
              "score": {"nis-yar1": 20, "seg-team": 5}, "tokens": {"nis-yar1": 120},
-             "steps": 8, "turns_completed": 8, "end_state_digest": "digest-1",
+             "steps": 9, "turns_completed": 8, "end_state_digest": "digest-1",
              "audit": {"passed": True, "forgery": False}},
             {"sub_game_number": 2, "roles": {"nis-yar1": "thief", "seg-team": "police"},
              "result": "survival", "winner_role": "thief", "game_uid": "uid-2",
              "score": {"nis-yar1": 5, "seg-team": 5}, "tokens": {"seg-team": 30},
+             "steps": 34, "turns_completed": 35,
              "audit": {"passed": True, "forgery": False}},
         ],
     }
 
 
 def test_declaration_required_keys(sysinfo: dict) -> None:
+    sysinfo["llm_provider"] = "template"
     decl = build_declaration(sysinfo, "nis-yar1", ["id-1", "id-2"], "deadbeef", 3,
                              "PUBKEY==", {"cop": "https://gh/x", "thief": "https://gh/x"},
                              "seg-team", GAME_ID, "uid-0", 2,
@@ -79,6 +81,8 @@ def test_declaration_required_keys(sysinfo: dict) -> None:
     assert decl["groups"]["group_2"]["members"] == ["C", "D"]
     assert decl["groups"]["group_2"]["repos"]["cop"] == "https://gh/seg-c"
     assert decl["groups"]["group_2"]["llm_model"] == "qwen3:14b"
+    assert "legitimately 0" in decl["token_accounting_note"]
+    assert "template" in decl["token_accounting_note"]
 
 
 def test_config_artifact_lock_and_terms() -> None:
@@ -119,8 +123,9 @@ def test_result_totals_match(series_summary: dict) -> None:
     assert [r["result"] for r in rows] == ["capture", "survival"]
     assert rows[0]["winner_group"] == "nis-yar1"
     assert rows[0]["audit"] == {"log_verified": True, "tampered": False}
-    # result rows are trimmed to the course template (== imreeyal's rows): no per-side extras
-    for extra in ("steps", "turns_completed", "step_count_convention",
+    assert [row["steps"] for row in rows] == [8, 35]
+    # Only the standardized terminal length survives; local diagnostic fields remain trimmed.
+    for extra in ("turns_completed", "step_count_convention",
                   "end_state_digest", "digest_match"):
         assert extra not in rows[0]
     assert "settlement" not in result  # no extra top-level block beyond the template (§3.17)
