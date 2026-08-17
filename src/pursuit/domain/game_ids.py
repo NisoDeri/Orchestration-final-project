@@ -4,8 +4,13 @@ Byte-exact re-implementation of the reference derivation (INTEROP §3.2, verifie
 the professor's sample-run artifacts):
 
     pair     = sorted([gid_a, gid_b])                     # lexicographic normalization
-    game_id  = f"{pair[0]}-vs-{pair[1]}"
-    seed     = canonical_json(terms) + "|" + pair[0] + "|" + pair[1]
+    unlabelled:
+      game_id  = f"{pair[0]}-vs-{pair[1]}"
+      seed     = canonical_json(terms) + "|" + pair[0] + "|" + pair[1]
+
+    labelled:
+      game_id  = f"{pair[0]}-vs-{pair[1]}-{label}"
+      seed     = canonical_json(terms) + "|" + game_id
     game_uid = str(uuid.UUID(bytes=sha256(seed)[:16]))    # first 16 digest bytes
 
 - ``canonical_json`` is the compact hasher: ``sort_keys=True, ensure_ascii=False,
@@ -31,7 +36,11 @@ def _canonical_json(data: dict) -> str:
     return json.dumps(data, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
 
 
-def derive_game_ids(terms: dict, group_ids: Sequence[str]) -> tuple[str, str]:
+def derive_game_ids(
+    terms: dict,
+    group_ids: Sequence[str],
+    label: str | None = None,
+) -> tuple[str, str]:
     """Derive ``(game_id, game_uid)`` from the signed terms and the two group ids.
 
     Deterministic and order-normalized: both peers call this with the same terms and the
@@ -41,9 +50,16 @@ def derive_game_ids(terms: dict, group_ids: Sequence[str]) -> tuple[str, str]:
         raise ConfigError(f"derive_game_ids needs exactly two non-empty group ids: {group_ids!r}")
     if not terms:
         raise ConfigError("derive_game_ids needs the signed terms dict; got empty terms")
+    if label is not None and (not isinstance(label, str) or not label.strip()):
+        raise ConfigError(f"game label must be a non-empty string when supplied: {label!r}")
     pair = sorted(group_ids)
-    game_id = f"{pair[0]}-vs-{pair[1]}"
-    seed = f"{_canonical_json(terms)}|{pair[0]}|{pair[1]}"
+    base_game_id = f"{pair[0]}-vs-{pair[1]}"
+    if label is None:
+        game_id = base_game_id
+        seed = f"{_canonical_json(terms)}|{pair[0]}|{pair[1]}"
+    else:
+        game_id = f"{base_game_id}-{label}"
+        seed = f"{_canonical_json(terms)}|{game_id}"
     digest = hashlib.sha256(seed.encode("utf-8")).digest()
     game_uid = str(uuid.UUID(bytes=digest[:16]))
     return game_id, game_uid

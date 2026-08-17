@@ -110,6 +110,12 @@ def _assert_optional_locks(mine: dict[str, Any], theirs: dict[str, Any]) -> None
             )
 
 
+def _declared_label(message: dict[str, Any]) -> str | None:
+    """Read either kit spelling of the out-of-band series label."""
+    value = message.get("game_label", message.get("label"))
+    return value if isinstance(value, str) and value else None
+
+
 def _receive_agreement(inboxes: Inboxes, deadline: float, poll: float, clock, sleep) -> dict:
     while True:
         try:
@@ -182,6 +188,11 @@ def _candidate_handshake(
     if not verify_agreement_signature(their_terms, their_nonce, their_signature):
         raise CryptoError("agreement signature mismatch - refusing to play (INTEROP 4.3b)")
     _assert_optional_locks(mine, theirs)
+    my_label, their_label = _declared_label(mine), _declared_label(theirs)
+    if my_label is not None and their_label is not None and my_label != their_label:
+        raise NegotiationError(
+            f"series label mismatch: ours={my_label!r} theirs={their_label!r}"
+        )
     _assert_pairing(sub_game_number, role, theirs)
     identity_raw = theirs.get("identity")
     identity = dict(identity_raw) if isinstance(identity_raw, dict) else {}
@@ -198,7 +209,9 @@ def _candidate_handshake(
     if not isinstance(opponent_gid, str) or not opponent_gid:
         raise CryptoError("opponent identity missing group_id - cannot derive game ids")
     my_gid = config.private("game.group_id")
-    game_id, game_uid = derive_game_ids(their_terms, [my_gid, opponent_gid])
+    game_id, game_uid = derive_game_ids(
+        their_terms, [my_gid, opponent_gid], label=my_label or their_label
+    )
     counted = next(
         (identity.get(key) for key in (
             "counted_games_so_far", "counted_games_played", "counted_matches_played"

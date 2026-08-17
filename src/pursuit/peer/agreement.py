@@ -109,6 +109,12 @@ def build_agreement_message(
     }
     if "github_commit" in identity:
         message["github_commit"] = identity["github_commit"]
+    label = _optional_private(config, "game.label", None)
+    if label is not None:
+        # The label is agreed out of band and changes the identifier seed, not the
+        # fourteen signed game terms. Send both common spellings for kit peers.
+        message["game_label"] = str(label)
+        message["label"] = str(label)
     message.update(build_lock_declarations(config))
     if sub_game_number is not None:
         message["sub_game_number"] = int(sub_game_number)

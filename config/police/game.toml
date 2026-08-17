@@ -3,6 +3,8 @@ version = "0.1.0"
 
 [game]
 mode = "counted"                # counted -> full-strength configured strategy
+label = "counted-1"             # agreed labeled-series identifier branch
+counted_games_so_far = 0         # first counted meeting for both groups
 group_name = "nis-yar1"
 group_id = "nis-yar1"
 members = ["Nissim Deri", "Yarden Tziar"]

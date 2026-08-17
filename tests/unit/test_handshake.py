@@ -8,6 +8,7 @@ from types import SimpleNamespace
 import pytest
 
 from pursuit.domain.crypto import generate_keypair
+from pursuit.domain.game_ids import derive_game_ids
 from pursuit.exceptions import CryptoError, DeadlineError, NegotiationError, TransportError
 from pursuit.peer.agreement import build_agreement_message, build_identity
 from pursuit.peer.handshake import Handshake, run_handshake
@@ -76,7 +77,12 @@ class DelayedAgreementTransport(QueueTransport):
             )
 
 
-def make_config(group_id: str, mutate_game=None, counted: int | None = 3) -> ConfigManager:
+def make_config(
+    group_id: str,
+    mutate_game=None,
+    counted: int | None = 3,
+    label: str | None = None,
+) -> ConfigManager:
     game = json.loads((ROOT / "config" / "police" / "game.json").read_text(encoding="utf-8"))
     if mutate_game is not None:
         mutate_game(game)
@@ -91,6 +97,8 @@ def make_config(group_id: str, mutate_game=None, counted: int | None = 3) -> Con
     }
     if counted is not None:
         game_block["counted_games_so_far"] = counted
+    if label is not None:
+        game_block["label"] = label
     private = {
         "game": game_block,
         "trash_talk": {"model": "stub"},
@@ -164,6 +172,12 @@ class TestAgreementMessage:
             "934c220d5bf62acaa3297c6c9d723ea954c220260b02292ca17f6d5daef9f4d9"
         )
 
+    def test_labelled_series_declares_both_kit_aliases(self, keypairs):
+        message = build_agreement_message(
+            make_config("aa-team", label="counted-1"), keypairs[0][1]
+        )
+        assert message["game_label"] == message["label"] == "counted-1"
+
 
 class TestSuccessfulHandshake:
     def test_ids_identical_on_both_sides(self, keypairs):
@@ -172,6 +186,18 @@ class TestSuccessfulHandshake:
         assert result_a.game_id == result_b.game_id == "aa-team-vs-zz-team"
         assert result_a.game_uid == result_b.game_uid
         assert len(result_a.game_uid) == 36
+
+    def test_labelled_ids_identical_on_both_sides(self, keypairs):
+        result_a, result_b = handshake_both(
+            make_config("aa-team", label="counted-1"),
+            make_config("zz-team", label="counted-1"),
+            keypairs,
+        )
+        expected = derive_game_ids(
+            result_a.terms, ["aa-team", "zz-team"], label="counted-1"
+        )
+        assert (result_a.game_id, result_a.game_uid) == expected
+        assert (result_b.game_id, result_b.game_uid) == expected
 
     def test_terms_agreed_and_equal(self, keypairs):
         result_a, result_b = handshake_both(make_config("aa-team"), make_config("zz-team"),
@@ -263,6 +289,21 @@ class TestRefusals:
         message["scent_model_sha256"] = "0" * 64
         with pytest.raises(DeadlineError, match="never sent"):
             self._seed_and_run(keypairs, message)
+
+    def test_label_mismatch_is_dropped_until_deadline(self, keypairs):
+        message = build_agreement_message(
+            make_config("zz-team", label="counted-2"), keypairs[1][1]
+        )
+        kp_a, _ = keypairs
+        inboxes = make_inboxes()
+        inboxes.agreements.put(message)
+        clock = FakeClock()
+        with pytest.raises(DeadlineError, match="never sent"):
+            run_handshake(
+                QueueTransport(make_inboxes()), inboxes,
+                make_config("aa-team", label="counted-1"), kp_a,
+                clock=clock, sleep=clock.sleep,
+            )
 
     def test_config_hash_mismatch_is_advisory(self, keypairs):
         message = build_agreement_message(make_config("zz-team"), keypairs[1][1])

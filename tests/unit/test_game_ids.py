@@ -23,6 +23,13 @@ GOLDEN_GIDS = ["segal-police-team", "segal-thief-team"]
 GOLDEN_UID = "7132f6ae-5e09-92a9-3e85-625e138e52cb"
 GOLDEN_ID = "segal-police-team-vs-segal-thief-team"
 
+COUNTED_TERMS: dict = json.loads(
+    '{"axis_origin_corner":"top-left","axis_start_index":0,"barriers_max":14,'
+    '"board_size":7,"cop_start":[0,0],"decay_per_step":0.1,"emit_intensity":0.9,'
+    '"hint_max_words":15,"max_steps":35,"min_center_intensity":0.5,"num_games":6,'
+    '"setting":"Haifa","smell_grid_size":5,"thief_start":[3,3]}'
+)
+
 
 def test_golden_worked_example_from_interop() -> None:
     game_id, game_uid = derive_game_ids(GOLDEN_TERMS, GOLDEN_GIDS)
@@ -34,6 +41,25 @@ def test_group_order_is_normalized() -> None:
     forward = derive_game_ids(GOLDEN_TERMS, GOLDEN_GIDS)
     swapped = derive_game_ids(GOLDEN_TERMS, list(reversed(GOLDEN_GIDS)))
     assert forward == swapped == (GOLDEN_ID, GOLDEN_UID)
+
+
+def test_labelled_counted_series_matches_independent_opponent_vector() -> None:
+    expected = (
+        "nis-yar1-vs-yanell11-counted-1",
+        "ed3380e9-108e-d0a9-5db3-66525e5b3c37",
+    )
+    assert derive_game_ids(
+        COUNTED_TERMS, ["nis-yar1", "yanell11"], label="counted-1"
+    ) == expected
+    assert derive_game_ids(
+        COUNTED_TERMS, ["yanell11", "nis-yar1"], label="counted-1"
+    ) == expected
+
+
+def test_label_changes_both_id_and_uid() -> None:
+    first = derive_game_ids(COUNTED_TERMS, ["nis-yar1", "yanell11"], label="counted-1")
+    second = derive_game_ids(COUNTED_TERMS, ["nis-yar1", "yanell11"], label="counted-2")
+    assert first != second
 
 
 def test_same_inputs_same_uid_and_key_order_irrelevant() -> None:
@@ -82,3 +108,9 @@ def test_bad_group_ids_raise_config_error(bad_gids: list) -> None:
 def test_empty_terms_raise_config_error() -> None:
     with pytest.raises(ConfigError):
         derive_game_ids({}, GOLDEN_GIDS)
+
+
+@pytest.mark.parametrize("label", ["", "   ", 7])
+def test_bad_label_raises_config_error(label) -> None:
+    with pytest.raises(ConfigError):
+        derive_game_ids(GOLDEN_TERMS, GOLDEN_GIDS, label=label)

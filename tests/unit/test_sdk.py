@@ -130,6 +130,12 @@ class TestFakeOpponentSeries:
         assert document["records"][0]["payload"]["type"] == "system_spec"
         assert document["records"][0]["payload"]["github_commit"] == "abc1234"
         assert all({"payload", "nonce", "commit"} <= set(r) for r in document["records"])
+        assert document["summary"]["audit"]["passed"] is True
+        assert document["summary"]["audit"]["their_records"]
+        assert all(
+            {"payload", "nonce", "commit"} <= set(record)
+            for record in document["summary"]["audit"]["their_records"]
+        )
         assert json.loads(series_file.read_text(encoding="utf-8"))["group_id"] == GID
 
     def test_role_alternation_across_two_subgames(self, tmp_path):
@@ -215,6 +221,10 @@ class TestFakeOpponentSeries:
         # the merge pulled the sibling endpoint's row (result rows are template-trimmed now)
         assert "end_state_digest" not in result["sub_games"][0]
         assert result["sub_games"][0]["audit"]["log_verified"] is True
+        retained_log = json.loads(
+            (out_dir / "log_anrbj666-vs-nis-yar1_g01.json").read_text(encoding="utf-8")
+        )
+        assert retained_log["summary"]["audit"]["their_records"] == Outcome.audit["their_records"]
         assert (out_dir / "config_anrbj666-vs-nis-yar1_g01.json").exists()
         assert (out_dir / "config_anrbj666-vs-nis-yar1_g03.json").exists()
         declaration = json.loads((out_dir / "declaration_anrbj666-vs-nis-yar1.json")
