@@ -56,6 +56,19 @@ def _reveal_mismatches(records: Any, live_commits: dict[int, str]) -> list[int]:
     return bad
 
 
+def _has_step0_signature(records: Any) -> bool:
+    """Whether the peer opted into our D14 Step-0 signature extension.
+
+    The kit wire profile seals Step-0 through commit-reveal but does not add a
+    separate ``signature`` field.  Missing is therefore an interoperable dialect,
+    while a supplied signature must still verify strictly.
+    """
+    if not records:
+        return False
+    payload = records[0].payload
+    return isinstance(payload, dict) and "signature" in payload
+
+
 def exchange_audits(role: Role, result: GameResult, log: SealedLog, transport: Any,
                     audits_inbox: Any, deadlines: Any, audit_timeout: float,
                     opponent_pubkey: str | None,
@@ -85,8 +98,9 @@ def exchange_audits(role: Role, result: GameResult, log: SealedLog, transport: A
     failed = sorted(set(failed) | set(_reveal_mismatches(theirs.records, live_commits or {})))
     if board is not None:  # semantic replay: the revealed trajectory must be physically legal
         failed = sorted(set(failed) | set(trajectory_mismatches(theirs.records, board)))
-    if not failed and opponent_pubkey and theirs.records and not verify_step0_signature(
-            theirs.records[0].payload, opponent_pubkey.encode("ascii")):
+    if (not failed and opponent_pubkey and _has_step0_signature(theirs.records)
+            and not verify_step0_signature(
+                theirs.records[0].payload, opponent_pubkey.encode("ascii"))):
         failed = [0]  # forged D14 hardware/ledger declaration (rulings A7/A9b)
     audit.update(passed=not failed, forgery=bool(failed), opponent_received=True,
                  steps=steps, failed_steps=failed, their_claim=theirs.result_claim,

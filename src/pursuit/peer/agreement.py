@@ -67,6 +67,9 @@ def build_lock_declarations(config: ConfigManager) -> dict[str, Any]:
         "wire_shape_sha256": WIRE_SHAPE_SHA256,
         "info_mode_sha256": INFO_MODE_SHA256,
         "commit_order": "thief_first",
+        # Within-step state resolution. This is distinct from commit_order:
+        # the thief opens the wire, while cop effects resolve first in a full turn.
+        "turn_order": "cop_first",
     }
     scent_hash = SCENT_MODEL_SHA256.get(str(config.game("pheromones.dialect")))
     if scent_hash is not None:
@@ -90,12 +93,22 @@ def build_agreement_message(
     """
     terms = build_terms(config)
     nonce = generate_nonce()
+    identity = build_identity(config, public_pem)
     message: dict[str, Any] = {
+        # Unsigned compatibility aliases for peers that bind a session before
+        # unpacking the nested identity block.
+        "sender": config.private("game.group_id"),
+        "group_id": config.private("game.group_id"),
         "terms": terms,
         "nonce": nonce,
         "signature": agreement_signature(terms, nonce),
-        "identity": build_identity(config, public_pem),
+        "identity": identity,
+        # Kit peers keep these disclosure aliases at top level instead of under identity.
+        "counted_games_played": identity["counted_games_played"],
+        "counted_matches_played": identity["counted_matches_played"],
     }
+    if "github_commit" in identity:
+        message["github_commit"] = identity["github_commit"]
     message.update(build_lock_declarations(config))
     if sub_game_number is not None:
         message["sub_game_number"] = int(sub_game_number)

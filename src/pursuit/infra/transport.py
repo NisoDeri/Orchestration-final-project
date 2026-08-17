@@ -113,20 +113,23 @@ class OpponentTransport:
     def _send(self, tool: str, body: dict) -> dict | None:
         arg_key, deadline_key, suppress = TOOL_SPEC[tool]
         budget, interval = self._t[deadline_key], self._t["retry_interval"]
+        backoff = max(interval, self._t.get("retry_backoff", interval))
+        delay = interval
         deadline = self._clock() + budget
         while True:
             remaining = deadline - self._clock()
             try:
                 return self._caller(self._url, tool, {arg_key: body}, max(remaining, interval))
             except (httpx.HTTPError, TransportError, OSError) as exc:
-                if self._clock() + interval >= deadline:
+                if self._clock() + delay >= deadline:
                     if suppress:
                         return None
                     raise TransportError(
                         f"Opponent MCP server unreachable: {tool} kept failing "
                         f"within its {budget:g}s deadline ({exc})"
                     ) from exc
-                self._sleep(interval)
+                self._sleep(delay)
+                delay = min(backoff, delay * 2.0)
 
     negotiate = partialmethod(_send, "negotiate")
     receive_turn = partialmethod(_send, "receive_turn")

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from pursuit.peer.audit import _reveal_mismatches
+from pursuit.peer.audit import _has_step0_signature, _reveal_mismatches
 
 
 def _rec(step: int, commit: str) -> SimpleNamespace:
@@ -38,3 +38,13 @@ def test_no_live_commits_is_a_noop() -> None:
 def test_malformed_payload_never_crashes() -> None:
     records = [_rec(1, "cA"), SimpleNamespace(payload="not-a-dict", commit="x")]
     assert _reveal_mismatches(records, {1: "cA"}) == []
+
+
+def test_unsigned_kit_step0_does_not_claim_signature_extension() -> None:
+    records = [SimpleNamespace(payload={"step": 0, "type": "system_spec"})]
+    assert not _has_step0_signature(records)
+
+
+def test_supplied_step0_signature_is_detected_even_when_malformed() -> None:
+    records = [SimpleNamespace(payload={"step": 0, "signature": 42})]
+    assert _has_step0_signature(records)

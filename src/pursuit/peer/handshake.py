@@ -17,18 +17,18 @@ from typing import Any, Protocol
 
 from pursuit.domain.game_ids import derive_game_ids
 from pursuit.domain.negotiation import verify_agreement_signature, verify_terms
-from pursuit.exceptions import CryptoError, DeadlineError, NegotiationError, TransportError
+from pursuit.exceptions import ConfigError, CryptoError, DeadlineError, NegotiationError, TransportError
 from pursuit.peer.agreement import build_agreement_message
 from pursuit.shared.config import ConfigManager
 
 OPTIONAL_LOCK_FIELDS: tuple[str, ...] = (
-    "config_sha256",
     "scent_model_sha256",
     "wire_shape_sha256",
     "info_mode_sha256",
     "smell_binding_sha256",
     "schema_version",
     "commit_order",
+    "turn_order",
 )
 
 
@@ -57,8 +57,11 @@ class Handshake:
 
 
 def _send_with_retry(
-    transport: Transport, message: dict, deadline: float, retry: float, clock, sleep
+    transport: Transport, message: dict, deadline: float, retry: float, clock, sleep,
+    backoff: float | None = None,
 ) -> None:
+    delay = max(0.1, float(retry))
+    ceiling = max(delay, float(backoff if backoff is not None else retry))
     while True:
         try:
             transport.negotiate(message)
@@ -66,7 +69,8 @@ def _send_with_retry(
         except TransportError as exc:
             if clock() >= deadline:
                 raise TransportError(f"opponent MCP server unreachable: {exc}") from exc
-            sleep(retry)
+            sleep(delay)
+            delay = min(ceiling, delay * 2.0)
 
 
 def _is_int(value: Any) -> bool:
@@ -129,6 +133,7 @@ def _receive_with_reoffer(
     poll: float,
     clock,
     sleep,
+    backoff: float | None = None,
 ) -> dict:
     """Wait for their agreement while periodically re-sending ours.
 
@@ -136,7 +141,9 @@ def _receive_with_reoffer(
     fixed-role per-window runners it may arrive before that specific window worker
     is armed. Keep advertising our current window until the counterpart arrives.
     """
-    next_offer = clock() + retry
+    delay = max(0.1, float(retry))
+    ceiling = max(delay, float(backoff if backoff is not None else retry))
+    next_offer = clock() + delay
     while True:
         try:
             theirs = inboxes.agreements.get_nowait()
@@ -145,8 +152,9 @@ def _receive_with_reoffer(
             if now >= deadline:
                 raise DeadlineError("opponent never sent its agreement") from None
             if now >= next_offer:
-                _send_with_retry(transport, message, deadline, retry, clock, sleep)
-                next_offer = clock() + retry
+                _send_with_retry(transport, message, deadline, retry, clock, sleep, backoff)
+                delay = min(ceiling, delay * 2.0)
+                next_offer = clock() + delay
                 continue
             sleep(min(poll, max(0.0, next_offer - now, deadline - now)))
             continue
@@ -175,14 +183,28 @@ def _candidate_handshake(
         raise CryptoError("agreement signature mismatch - refusing to play (INTEROP 4.3b)")
     _assert_optional_locks(mine, theirs)
     _assert_pairing(sub_game_number, role, theirs)
-    identity = theirs.get("identity")
-    identity = identity if isinstance(identity, dict) else {}
+    identity_raw = theirs.get("identity")
+    identity = dict(identity_raw) if isinstance(identity_raw, dict) else {}
+    # The kit dialect keeps identity/disclosure fields beside terms rather than nesting
+    # them. Accept either shape and normalize once for the rest of the runtime/reporting.
+    for key in (
+        "group_id", "group_name", "members", "repos", "mcp_servers",
+        "ed25519_public_key", "github_commit", "counted_games_so_far",
+        "counted_games_played", "counted_matches_played",
+    ):
+        if key not in identity and key in theirs:
+            identity[key] = theirs[key]
     opponent_gid = identity.get("group_id")
     if not isinstance(opponent_gid, str) or not opponent_gid:
         raise CryptoError("opponent identity missing group_id - cannot derive game ids")
     my_gid = config.private("game.group_id")
     game_id, game_uid = derive_game_ids(their_terms, [my_gid, opponent_gid])
-    counted = identity.get("counted_games_so_far")
+    counted = next(
+        (identity.get(key) for key in (
+            "counted_games_so_far", "counted_games_played", "counted_matches_played"
+        ) if isinstance(identity.get(key), int)),
+        None,
+    )
     return Handshake(
         game_id=game_id,
         game_uid=game_uid,
@@ -214,13 +236,17 @@ def run_handshake(
     _private_pem, public_pem = keypair
     mine = build_agreement_message(config, public_pem, sub_game_number=sub_game_number, role=role)
     retry = float(config.private("network.retry_interval_seconds"))
+    try:
+        backoff = float(config.private("network.retry_backoff_seconds"))
+    except ConfigError:
+        backoff = retry
     poll = float(config.private("network.poll_interval_seconds"))
     deadline = clock() + float(config.private("network.connect_timeout_seconds"))
 
-    _send_with_retry(transport, mine, deadline, retry, clock, sleep)
+    _send_with_retry(transport, mine, deadline, retry, clock, sleep, backoff)
     while True:
         theirs = _receive_with_reoffer(
-            transport, inboxes, mine, deadline, retry, poll, clock, sleep
+            transport, inboxes, mine, deadline, retry, poll, clock, sleep, backoff
         )
         if _is_stale_pairing(sub_game_number, theirs):
             continue

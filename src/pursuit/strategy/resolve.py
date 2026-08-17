@@ -20,6 +20,11 @@ from pursuit.exceptions import ConfigError
 from pursuit.strategy.base import BrainBase, TalkLike
 from pursuit.strategy.adaptive_police import AdaptivePoliceBrain
 from pursuit.strategy.center_thief import CenterThief
+from pursuit.strategy.friendly_dummy import (
+    DummyTalk,
+    FriendlyDummyPoliceBrain,
+    FriendlyDummyThiefBrain,
+)
 from pursuit.strategy.police import InterceptorPoliceBrain  # noqa: F401 (selectable fallback)
 from pursuit.strategy.talk import TemplateTalk
 from pursuit.strategy.thief import SurvivorThiefBrain  # noqa: F401 (selectable fallback)
@@ -74,6 +79,12 @@ def resolve_brain(config: Any, role: Role | str, rng: Any,
                   talk: TalkLike | None = None) -> BrainBase:
     """Instantiate the configured brain for ``role`` with injected talk + rng."""
     role = Role(role)
+    mode = _optional(config.private, "strategy.mode")
+    game_mode = _optional(config.private, "game.mode")
+    if mode == "friendly_dummy" or (mode is None and game_mode == "friendly"):
+        dummy_talk = talk or DummyTalk(rng)
+        cls = FriendlyDummyPoliceBrain if role is Role.POLICE else FriendlyDummyThiefBrain
+        return cls(dummy_talk, rng)
     selector = _optional(config.private, _SELECTOR_KEYS[role])
     cls = load_brain_cls(selector) if selector is not None else _DEFAULT_BRAINS[role]
     if talk is None:

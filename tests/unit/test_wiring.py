@@ -133,6 +133,7 @@ def test_maybe_email_sends_through_gatekeeper_when_enabled(monkeypatch):
         {})
     maybe_email(cfg, _SUMMARY, {"_schema": "final_game_result", "game_id": "nis-yar1-vs-opp",
                                 "num_sub_games": 1,
+                                "mutual_agreement": {"confirmed": True},
                                 "final_result": {
                                     "total_score": {"nis-yar1": 20, "opp": 5},
                                     "winner_group": "nis-yar1",
@@ -159,6 +160,21 @@ def test_maybe_email_skips_partial_fixed_role_result(monkeypatch):
         {})
     maybe_email(cfg, _SUMMARY, {"_schema": "final_game_result", "game_id": "g",
                                 "num_sub_games": 3})
+
+
+def test_maybe_email_skips_unconfirmed_result(monkeypatch):
+    def _forbidden(*a, **k):
+        raise AssertionError("unconfirmed result must not be emailed")
+
+    monkeypatch.setattr(email_mod, "GmailSender", _forbidden)
+    cfg = ConfigManager(
+        {"rate_limiter_gatekeeper": {}, "network_and_league": {"num_games": 1}},
+        {"email": {"enabled": True}},
+        {})
+    maybe_email(cfg, _SUMMARY, {
+        "_schema": "final_game_result", "game_id": "g", "num_sub_games": 1,
+        "mutual_agreement": {"confirmed": False},
+    })
 
 
 # --- CLI: replay + agent-vs-agent dispatch ---------------------------------------------------

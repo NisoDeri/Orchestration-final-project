@@ -100,7 +100,8 @@ def logical_subgame_numbers(config: Any, role: Role, count: int, alternate: bool
     """Return the sub-game numbers this process should declare.
 
     Fixed-role two-endpoint play runs only the parity assigned to this group/role:
-    first sorted group is cop on odd sub-games, second sorted group is thief on odd sub-games.
+    an explicit private ``game.fixed_role_odd`` agreement wins; otherwise the first sorted
+    group is cop on odd sub-games and the second sorted group is thief on odd sub-games.
     """
     if alternate:
         return list(range(1, count + 1))
@@ -112,10 +113,16 @@ def logical_subgame_numbers(config: Any, role: Role, count: int, alternate: bool
         return list(range(1, count + 1))
     if len(pair) != 2 or my_gid not in pair:
         return list(range(1, count + 1))
+    try:
+        odd_role = Role(str(config.private("game.fixed_role_odd")))
+    except Exception:  # noqa: BLE001 - optional out-of-band role-direction lock
+        odd_role = None
     first = pair[0] == my_gid
 
     def role_for(number: int) -> Role:
         odd = number % 2 == 1
+        if odd_role is not None:
+            return odd_role if odd else odd_role.opponent
         if first:
             return Role.POLICE if odd else Role.THIEF
         return Role.THIEF if odd else Role.POLICE
@@ -153,6 +160,8 @@ def run_series(config: Any, role: Role, num_games: int, transport: Any, inboxes:
                               counted_games=counted_games(config), watchdog=watchdog,
                               observer=observer, sub_game_number=number)
         outcome = runtime.run()
+        if observer is not None and hasattr(observer, "game_finished"):
+            observer.game_finished(number, outcome)
         game_id = outcome.game_id
         opp_gid = outcome.opponent_group or "opponent"
         rows.append({my_gid: outcome.scores[role_now],

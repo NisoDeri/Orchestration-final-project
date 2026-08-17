@@ -1,0 +1,53 @@
+{
+  "schema_version": "1.0",
+  "game_name": "cop_thief_najamjad_compat",
+  "group_id": "nis-yar1",
+  "group_name": "Nis-Yar-1",
+  "members": ["Nissim Deri", "Yarden Tziar"],
+  "opponent_group_id": "najamjad",
+  "repositories": {
+    "cop": "https://github.com/NisoDeri/nis-yar1-cop",
+    "thief": "https://github.com/NisoDeri/nis-yar1-thief"
+  },
+  "commits": {
+    "cop": "7633fbc808b56f92f8b7ce09a2178ba523e3e31d",
+    "thief": "3f2d02160174361e4cd40dc409b7df63e9cb22fe"
+  },
+  "our_endpoints": {
+    "cop": "https://brother-blocking-discount-jackson.trycloudflare.com/mcp",
+    "thief": "https://minister-angel-opponent-strategy.trycloudflare.com/mcp"
+  },
+  "signed_terms": {
+    "board_size": 7,
+    "axis_origin_corner": "top-left",
+    "axis_start_index": 0,
+    "cop_start": [0, 0],
+    "thief_start": [3, 3],
+    "max_steps": 35,
+    "barriers_max": 14,
+    "num_games": 6,
+    "smell_grid_size": 5,
+    "decay_per_step": 0.1,
+    "emit_intensity": 0.9,
+    "min_center_intensity": 0.5,
+    "hint_max_words": 15,
+    "setting": "New York"
+  },
+  "protocol": {
+    "commit_reveal": "reference",
+    "scent_model": "subtractive_chebyshev_v1",
+    "two_processes": true,
+    "thief_opens": true,
+    "roles_keyed_by_group_id": true,
+    "step_one_is_after_first_move": true
+  },
+  "timeouts": {
+    "per_turn_seconds": 30,
+    "busy_peer_seconds": 360,
+    "retries": 3
+  },
+  "endpoints": {
+    "opponent_cop": "https://cop.4laboratory.com/mcp",
+    "opponent_thief": "https://thief.4laboratory.com/mcp"
+  }
+}

@@ -142,9 +142,15 @@ class AuditPayload:
 
     @classmethod
     def from_wire(cls, data: dict[str, Any]) -> AuditPayload:
-        validate_envelope(data, _AUDIT_SPEC, _AUDIT_SPEC, "AuditPayload")
-        require_role(data["sender"], "AuditPayload")
-        if data["result_claim"] not in RESULT_CLAIMS:
+        normalized = dict(data) if isinstance(data, dict) else data
+        if isinstance(normalized, dict) and isinstance(normalized.get("result_claim"), dict):
+            # Kit peers use {"type": "capture", "winner": "police", ...}; the
+            # reference wire uses the bare string. Accept both, emit the reference form.
+            normalized = {**normalized, "result_claim": normalized["result_claim"].get("type")}
+        validate_envelope(normalized, _AUDIT_SPEC, _AUDIT_SPEC, "AuditPayload")
+        require_role(normalized["sender"], "AuditPayload")
+        if normalized["result_claim"] not in RESULT_CLAIMS:
             raise TransportError(f"AuditPayload result_claim not in {sorted(RESULT_CLAIMS)}")
-        records = [AuditRecord.from_wire(record) for record in data["records"]]
-        return cls(sender=data["sender"], result_claim=data["result_claim"], records=records)
+        records = [AuditRecord.from_wire(record) for record in normalized["records"]]
+        return cls(sender=normalized["sender"], result_claim=normalized["result_claim"],
+                   records=records)

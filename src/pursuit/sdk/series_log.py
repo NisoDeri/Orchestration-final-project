@@ -74,7 +74,10 @@ def sub_row(number: int, role: Role, my_gid: str, opp_gid: str,
             "result": outcome.result.value,
             "winner_role": None if outcome.winner is None else outcome.winner.value,
             "github_commit": _github_commit_map(roles, role, outcome.records,
-                                                outcome.audit.get("their_records")),
+                                                outcome.audit.get("their_records"),
+                                                outcome.opponent_identity),
+            "tokens": {my_gid: _token_total(outcome.records),
+                       opp_gid: _token_total(outcome.audit.get("their_records"))},
             "score": {my_gid: outcome.scores[role], opp_gid: outcome.scores[role.opponent]},
             "steps": outcome.steps, "turns_completed": turns,
             "step_count_convention": _STEP_COUNT_CONVENTION,
@@ -172,15 +175,35 @@ def _step0_commit(records: Any) -> str | None:
     return None
 
 
+def _token_total(records: Any) -> int:
+    """Read the final cumulative token count, falling back to summed per-step counts."""
+    cumulative: list[int] = []
+    per_step: list[int] = []
+    for record in records or []:
+        payload = record.get("payload", {}) if isinstance(record, dict) else {}
+        try:
+            if "tokens_total" in payload:
+                cumulative.append(int(payload.get("tokens_total", 0) or 0))
+            elif "tokens_step" in payload:
+                per_step.append(int(payload.get("tokens_step", 0) or 0))
+        except (TypeError, ValueError):
+            continue
+    return max(cumulative, default=sum(per_step))
+
+
 def _github_commit_map(
     roles: dict[str, str],
     my_role: Role,
     my_records: Any,
     their_records: Any,
+    opponent_identity: Any = None,
 ) -> dict[str, str]:
+    peer_commit = _step0_commit(their_records)
+    if not peer_commit and isinstance(opponent_identity, dict):
+        peer_commit = opponent_identity.get("github_commit")
     by_role = {
         my_role.value: _step0_commit(my_records),
-        my_role.opponent.value: _step0_commit(their_records),
+        my_role.opponent.value: peer_commit,
     }
     return {gid: by_role[role] for gid, role in roles.items() if by_role.get(role)}
 
@@ -236,7 +259,12 @@ def _row_from_log(config: Any, doc: dict[str, Any], my_gid: str, opp_gid: str) -
             role,
             doc.get("records", []),
             (summary.get("audit") or {}).get("their_records", []),
+            summary.get("opponent_identity"),
         ),
+        "tokens": {
+            my_gid: _token_total(doc.get("records", [])),
+            opponent: _token_total((summary.get("audit") or {}).get("their_records", [])),
+        },
         "score": {my_gid: by_role[role], opponent: by_role[role.opponent]},
         "steps": int(summary.get("steps", 0) or 0),
         "turns_completed": int(summary.get("turns_completed", summary.get("steps", 0)) or 0),
@@ -383,6 +411,8 @@ def maybe_email(config: Any, summary: dict[str, Any], result: dict[str, Any],
             expected = int(summary.get("num_sub_games", 0) or 0)
         if int(result.get("num_sub_games", 0) or 0) < expected:
             return
+        if not bool((result.get("mutual_agreement") or {}).get("confirmed", False)):
+            return  # never auto-send a contradictory or incompletely audited friendly
         from pursuit.infra.email import GmailSender
         from pursuit.infra.gatekeeper import Gatekeeper
 

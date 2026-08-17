@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "game_name": "beacon_hunt",
+  "protocol_profile": "copthief-league-kit",
+  "board": {
+    "grid_size": 7,
+    "beacons": [[3, 3], [1, 5], [5, 1]],
+    "starting_positions": {
+      "north": [0, 0],
+      "south": [6, 6]
+    }
+  },
+  "rules": {
+    "max_turns": 30,
+    "beacons_to_win": 2,
+    "actions": ["N", "S", "E", "W", "STAY", "SCAN", "CLAIM"]
+  },
+  "network": {
+    "canonical_json": "kit-core-v1",
+    "commit_reveal": "reference",
+    "num_games": 6,
+    "audit_required": true
+  }
+}

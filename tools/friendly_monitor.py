@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import socket
 import subprocess
 import sys
 import time
@@ -80,8 +81,14 @@ def _launch_logs(tunnel_dir: Path) -> list[Path]:
 
 
 def _ports() -> list[str]:
-    text = _run(["cmd", "/c", 'netstat -ano | findstr ":8799 :8801 :8802"'])
-    return [line.strip() for line in text.splitlines() if line.strip()]
+    lines: list[str] = []
+    for port, service in ((8799, "path proxy"), (8801, "thief"), (8802, "cop")):
+        try:
+            with socket.create_connection(("127.0.0.1", port), timeout=0.25):
+                lines.append(f"127.0.0.1:{port} LISTENING ({service})")
+        except OSError:
+            lines.append(f"127.0.0.1:{port} DOWN ({service})")
+    return lines
 
 
 def _task(task_name: str) -> list[str]:
@@ -139,9 +146,10 @@ def _current_summaries(log_dir: Path, game_id: str,
     return sorted(rows, key=lambda item: int(item[1].get("sub_game_number", 0) or 0))
 
 
-def _game_status(log_dir: Path, game_id: str, since: datetime | None) -> list[str]:
+def _game_status(log_dir: Path, game_id: str, opponent_group: str,
+                 since: datetime | None) -> list[str]:
     rows = _current_summaries(log_dir, game_id, since)
-    groups = ("nis-yar1", "anrbj666")
+    groups = ("nis-yar1", opponent_group)
     totals = {gid: 0 for gid in groups}
     wins = {gid: 0 for gid in groups}
     for _path, summary in rows:
@@ -154,14 +162,17 @@ def _game_status(log_dir: Path, game_id: str, since: datetime | None) -> list[st
     next_game = next((n for n in range(1, 7) if n not in completed), None)
     lines = [
         f"current friendly: completed {len(completed)}/6 | "
-        f"score nis-yar1:{totals.get('nis-yar1', 0)} anrbj666:{totals.get('anrbj666', 0)} | "
-        f"wins nis-yar1:{wins.get('nis-yar1', 0)} anrbj666:{wins.get('anrbj666', 0)}",
+        f"score nis-yar1:{totals.get('nis-yar1', 0)} "
+        f"{opponent_group}:{totals.get(opponent_group, 0)} | "
+        f"wins nis-yar1:{wins.get('nis-yar1', 0)} "
+        f"{opponent_group}:{wins.get(opponent_group, 0)}",
         f"now: {'series complete' if next_game is None else f'waiting/playing g{next_game:02d}'}",
     ]
     return lines
 
 
-def _result_rows(log_dir: Path, game_id: str, since: datetime | None) -> list[str]:
+def _result_rows(log_dir: Path, game_id: str, opponent_group: str,
+                 since: datetime | None) -> list[str]:
     rows: list[str] = []
     for path in sorted(log_dir.glob(f"log_{game_id}_g*.json")):
         data = _load_json(path) or {}
@@ -174,11 +185,34 @@ def _result_rows(log_dir: Path, game_id: str, since: datetime | None) -> list[st
         rows.append(
             f"{marker:3} g{int(summary.get('sub_game_number', 0) or 0):02d} "
             f"{summary.get('role', '?'):6} {summary.get('result', 'running?'):14} "
-            f"winner={winner} score={score.get('nis-yar1', 0)}-{score.get('anrbj666', 0)} "
+            f"winner={winner} score={score.get('nis-yar1', 0)}-"
+            f"{score.get(opponent_group, 0)} "
             f"steps={summary.get('steps', '-')} turns={summary.get('turns_completed', '-')} "
             f"audit={audit.get('passed', '-')} mtime={mtime.strftime('%H:%M:%S')}"
         )
     return rows
+
+
+def _latest_role_file(tunnel_dir: Path, role: str, suffix: str) -> Path | None:
+    candidates = list(tunnel_dir.glob(f"*{role}.{suffix}"))
+    if not candidates:
+        return None
+    return max(candidates, key=lambda path: path.stat().st_mtime)
+
+
+def _live_progress(tunnel_dir: Path) -> list[str]:
+    """Return the latest ConsoleProgress events from both fixed-role peers."""
+    lines: list[str] = []
+    for role in ("thief", "cop"):
+        path = _latest_role_file(tunnel_dir, role, "out")
+        if path is None:
+            lines.append(f"{role:5}: no output file")
+            continue
+        events = [line.strip() for line in _tail(path, 120)
+                  if "game=" in line or "Friendly game" in line]
+        state = events[-1] if events else "waiting for handshake/first turn"
+        lines.append(f"{role:5}: {state}  [{path.name}, {_mtime(path)}]")
+    return lines
 
 
 def _artifact_summary(log_dir: Path, game_id: str) -> list[str]:
@@ -195,8 +229,8 @@ def _artifact_summary(log_dir: Path, game_id: str) -> list[str]:
     return lines
 
 
-def render(repo: Path, game_id: str, since: datetime | None, urls: tuple[str, ...],
-           task_name: str) -> str:
+def render(repo: Path, game_id: str, opponent_group: str, since: datetime | None,
+           urls: tuple[str, ...], task_name: str | None) -> str:
     tunnel_dir = repo / ".tunnels"
     game_log_dir = repo / "logs" / "nis-yar1"
     out: list[str] = []
@@ -207,22 +241,29 @@ def render(repo: Path, game_id: str, since: datetime | None, urls: tuple[str, ..
     out.append("")
 
     out.append("Game Status")
-    out.extend(f"  {line}" for line in _game_status(game_log_dir, game_id, since))
+    out.extend(f"  {line}" for line in _game_status(
+        game_log_dir, game_id, opponent_group, since))
     out.append("")
 
-    out.append("Scheduled Task")
-    out.extend(f"  {line}" for line in _task(task_name))
+    out.append("Live Role Progress")
+    out.extend(f"  {line}" for line in _live_progress(tunnel_dir))
     out.append("")
+
+    if task_name:
+        out.append("Scheduled Task")
+        out.extend(f"  {line}" for line in _task(task_name))
+        out.append("")
 
     out.append("Ports")
     ports = _ports()
     out.extend(f"  {line}" for line in ports) if ports else out.append("  no 8799/8801/8802 listeners")
     out.append("")
 
-    out.append("HTTP Probes")
-    for url in urls:
-        out.append(f"  {url} -> {_probe(url)}")
-    out.append("")
+    if urls:
+        out.append("HTTP Probes")
+        for url in urls:
+            out.append(f"  {url} -> {_probe(url)}")
+        out.append("")
 
     out.append("Latest Launcher")
     launches = _launch_logs(tunnel_dir)
@@ -235,9 +276,10 @@ def render(repo: Path, game_id: str, since: datetime | None, urls: tuple[str, ..
     out.append("")
 
     out.append("Peer/Tunnel Files")
-    for name in ("ngrok.err", "proxy.err", "peer-thief.err", "peer-police.err",
-                 "peer-thief.out", "peer-police.out"):
-        path = tunnel_dir / name
+    peer_files = [path for role in ("thief", "cop") for suffix in ("err", "out")
+                  if (path := _latest_role_file(tunnel_dir, role, suffix)) is not None]
+    for path in peer_files:
+        name = path.name
         exists = path.exists()
         size = path.stat().st_size if exists else 0
         out.append(f"  {name:16} size={size:7} mtime={_mtime(path)}")
@@ -246,7 +288,7 @@ def render(repo: Path, game_id: str, since: datetime | None, urls: tuple[str, ..
     out.append("")
 
     out.append("Sub-Games")
-    rows = _result_rows(game_log_dir, game_id, since)
+    rows = _result_rows(game_log_dir, game_id, opponent_group, since)
     out.extend(f"  {row}" for row in rows) if rows else out.append("  no sub-game logs yet")
     out.append("")
 
@@ -273,16 +315,26 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--repo", default=str(Path.cwd()))
     parser.add_argument("--game-id", default=DEFAULT_GAME_ID)
+    parser.add_argument("--opponent-group", default=None)
     parser.add_argument("--since", default=None, help="mark logs newer than HH:MM as NEW")
     parser.add_argument("--interval", type=float, default=5.0)
-    parser.add_argument("--task-name", default="nis-yar1-friendly-1427")
+    parser.add_argument("--task-name", default=None)
+    parser.add_argument("--url", action="append", default=[],
+                        help="optional endpoint to probe (repeatable; disabled by default)")
     parser.add_argument("--once", action="store_true")
     args = parser.parse_args()
     repo = Path(args.repo).resolve()
     since = _parse_since(args.since)
+    opponent_group = args.opponent_group
+    if not opponent_group:
+        pair = args.game_id.split("-vs-", 1)
+        opponent_group = pair[1] if len(pair) == 2 and pair[0] == "nis-yar1" else pair[0]
     while True:
-        print("\n" + "=" * 100)
-        print(render(repo, args.game_id, since, DEFAULT_URLS, args.task_name))
+        if not args.once:
+            print("\033[2J\033[H", end="")
+        print("=" * 100)
+        print(render(repo, args.game_id, opponent_group, since,
+                     tuple(args.url), args.task_name))
         if args.once:
             break
         time.sleep(max(1.0, args.interval))

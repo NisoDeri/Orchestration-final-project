@@ -129,11 +129,10 @@ class TestAgreementMessage:
     def test_message_shape_and_self_verifying_signature(self, keypairs):
         from pursuit.domain.negotiation import verify_agreement_signature
 
-        message = build_agreement_message(make_config("aa-team"), keypairs[0][1])
+        config = make_config("aa-team")
+        message = build_agreement_message(config, keypairs[0][1])
         assert {"terms", "nonce", "signature", "identity"}.issubset(message)
-        assert message["config_sha256"] == (
-            "32483c7bbc21ba83741fed8cfeab60e4670577feef84dba38daf3ad7179bcbc6"
-        )
+        assert message["config_sha256"] == config.config_sha256()
         assert message["scent_model_sha256"] == (
             "81ebee59640e80eae8ca9ee5f86abd26e7edf5cdbb27d15925cb6ee45ca6ddf4"
         )
@@ -141,6 +140,7 @@ class TestAgreementMessage:
             "229ae6487a418c3fcb6da9be404de2f2533c288ebc228811bff6dedc4164d6f7"
         )
         assert message["commit_order"] == "thief_first"
+        assert message["turn_order"] == "cop_first"
         assert len(message["nonce"]) == 32 and int(message["nonce"], 16) >= 0
         assert verify_agreement_signature(
             message["terms"], message["nonce"], message["signature"])
@@ -254,6 +254,7 @@ class TestRefusals:
     def test_missing_group_id_is_dropped_until_deadline(self, keypairs):
         message = build_agreement_message(make_config("zz-team"), keypairs[1][1])
         del message["identity"]["group_id"]
+        del message["group_id"]
         with pytest.raises(DeadlineError, match="never sent"):
             self._seed_and_run(keypairs, message)
 
@@ -262,6 +263,11 @@ class TestRefusals:
         message["scent_model_sha256"] = "0" * 64
         with pytest.raises(DeadlineError, match="never sent"):
             self._seed_and_run(keypairs, message)
+
+    def test_config_hash_mismatch_is_advisory(self, keypairs):
+        message = build_agreement_message(make_config("zz-team"), keypairs[1][1])
+        message["config_sha256"] = "0" * 64
+        assert self._seed_and_run(keypairs, message).game_id == "aa-team-vs-zz-team"
 
     def test_bad_agreement_does_not_prevent_later_valid_agreement(self, keypairs):
         kp_a, kp_b = keypairs
@@ -279,6 +285,15 @@ class TestRefusals:
         message = build_agreement_message(make_config("zz-team"), keypairs[1][1])
         del message["scent_model_sha256"]
         assert self._seed_and_run(keypairs, message).game_id == "aa-team-vs-zz-team"
+
+    def test_kit_top_level_identity_shape_plays(self, keypairs):
+        message = build_agreement_message(make_config("zz-team"), keypairs[1][1])
+        identity = message.pop("identity")
+        message["group_id"] = identity["group_id"]
+        message["counted_games_played"] = 4
+        result = self._seed_and_run(keypairs, message)
+        assert result.game_id == "aa-team-vs-zz-team"
+        assert result.opponent_counted_games == 4
 
     def test_empty_inbox_deadline(self, keypairs):
         kp_a, _ = keypairs

@@ -24,13 +24,16 @@ def main() -> None:
     parser.add_argument("--smtp", default="secrets/smtp.json")
     parser.add_argument("--from-addr", default="yardentziar@gmail.com")
     parser.add_argument("--to", action="append", default=[])
+    parser.add_argument("--note", default="",
+                        help="optional coordination note placed before the JSON body")
     args = parser.parse_args()
 
     result_path = Path(args.result)
     result = json.loads(result_path.read_text(encoding="utf-8"))
     creds = json.loads(Path(args.smtp).read_text(encoding="utf-8-sig"))
     recipients = args.to or ["alonisrael.engel@gmail.com", "yardentziar@gmail.com"]
-    body = json.dumps(result, ensure_ascii=False, indent=2)
+    json_body = json.dumps(result, ensure_ascii=False, indent=2)
+    body = f"{args.note.strip()}\n\n{json_body}" if args.note.strip() else json_body
     game_id = str(result["game_id"])
 
     msg = MIMEMultipart()
@@ -38,7 +41,7 @@ def main() -> None:
     msg["From"] = args.from_addr
     msg["To"] = ", ".join(recipients)
     msg.attach(MIMEText(body, "plain", "utf-8"))
-    attachment = MIMEApplication(body.encode("utf-8"), _subtype="json")
+    attachment = MIMEApplication(json_body.encode("utf-8"), _subtype="json")
     attachment.add_header("Content-Disposition", "attachment",
                           filename=f"result_{game_id}.json")
     msg.attach(attachment)

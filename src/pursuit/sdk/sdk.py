@@ -48,6 +48,9 @@ def _timeouts(config: ConfigManager) -> dict[str, float]:
     """OpponentTransport timeout block, straight from the private network config."""
     private = config.private
     return {"retry_interval": float(private("network.retry_interval_seconds")),
+            "retry_backoff": float(_optional(
+                private, "network.retry_backoff_seconds",
+                private("network.retry_interval_seconds"))),
             "connect_timeout": float(private("network.connect_timeout_seconds")),
             "audit_timeout": float(private("network.audit_send_timeout_seconds")),
             "control_timeout": float(_optional(private, "network.control_timeout_seconds",
@@ -127,6 +130,11 @@ def run_peer(config_dir: str | Path, role: Role | str, num_games: int | None = N
         config.override_game("pheromones.dialect", scent_dialect)
     if mode is not None:
         config.set_private("game.mode", mode)
+    if observer is None and _optional(config.private, "game.mode", "friendly") == "friendly":
+        from pursuit.sdk.progress import ConsoleProgress
+
+        observer = ConsoleProgress(
+            int(config.game("movement_and_barriers.survival_threshold")))
     config.validate_agreement()  # fail-fast on any missing agreed term (brief §10)
     my_role = Role(role)
     games = int(num_games if num_games is not None

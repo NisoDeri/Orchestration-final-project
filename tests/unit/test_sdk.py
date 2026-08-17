@@ -150,6 +150,12 @@ class TestFakeOpponentSeries:
         assert logical_subgame_numbers(cfg, Role.THIEF, 3, alternate=False) == [1, 3, 5]
         assert logical_subgame_numbers(cfg, Role.POLICE, 3, alternate=False) == [2, 4, 6]
 
+    def test_fixed_role_explicit_odd_role_overrides_pair_sort(self, tmp_path):
+        cfg = ConfigManager.load(write_config(tmp_path / "cfg", num_games=6))
+        cfg.set_private("game.fixed_role_odd", "police")
+        assert logical_subgame_numbers(cfg, Role.POLICE, 3, alternate=False) == [1, 3, 5]
+        assert logical_subgame_numbers(cfg, Role.THIEF, 3, alternate=False) == [2, 4, 6]
+
     def test_fixed_role_artifact_emit_merges_sibling_endpoint_logs(self, tmp_path):
         cfg = ConfigManager.load(write_config(tmp_path / "cfg", num_games=6))
         out_dir = tmp_path / "logs" / GID
@@ -164,10 +170,14 @@ class TestFakeOpponentSeries:
                      "their_records": [
                          {"payload": {"step": 0, "github_commit": THEIR_FULL_SHA},
                           "nonce": "n2", "commit": "c2"},
+                         {"payload": {"step": 1, "tokens_total": 34},
+                          "nonce": "n4", "commit": "c4"},
                      ]}
             records = [{"payload": {"step": 0, "sub_game_number": 1,
                                     "github_commit": OUR_FULL_SHA},
-                        "nonce": "n", "commit": "c"}]
+                        "nonce": "n", "commit": "c"},
+                       {"payload": {"step": 1, "tokens_total": 12},
+                        "nonce": "n3", "commit": "c3"}]
             steps = 8
             end_state_digest = "digest"
             game_id = "anrbj666-vs-nis-yar1"
@@ -200,6 +210,8 @@ class TestFakeOpponentSeries:
         assert result["links"]["github"]["anrbj666"] == {"cop": "https://gh/anrbj666/cop"}
         assert result["sub_games"][0]["github_commit"] == {
             "nis-yar1": OUR_FULL_SHA, "anrbj666": THEIR_FULL_SHA}
+        assert result["sub_games"][0]["tokens"] == {
+            "nis-yar1": 12, "anrbj666": 34}
         # the merge pulled the sibling endpoint's row (result rows are template-trimmed now)
         assert "end_state_digest" not in result["sub_games"][0]
         assert result["sub_games"][0]["audit"]["log_verified"] is True

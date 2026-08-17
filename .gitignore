@@ -3,6 +3,7 @@ __pycache__/
 *.py[cod]
 *.egg-info/
 .pytest_cache/
+.pytest_tmp_*/
 .ruff_cache/
 .coverage
 htmlcov/
@@ -16,6 +17,8 @@ artifacts/lab/*.json
 
 # Secrets
 .env
+.env~
+*.un~
 secrets/
 *token.json
 *credentials.json

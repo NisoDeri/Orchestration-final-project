@@ -25,6 +25,7 @@ def board_snapshot(runtime: Any, status: str,
     matrix = (to_matrix() if callable(to_matrix)
               else [[1.0 / (size * size)] * size for _ in range(size)])
     return {"step": state.step_number, "role": runtime.role.value,
+        "sub_game_number": getattr(runtime, "sub_game_number", None),
             "my_pos": state.position, "barriers": list(state.barriers),
             "visited": list(state.visited), "belief_matrix": matrix,
             "hint_in": hint_in, "hint_out": hint_out, "status": status}

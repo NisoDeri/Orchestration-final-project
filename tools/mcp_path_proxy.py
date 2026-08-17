@@ -53,6 +53,14 @@ class Proxy(BaseHTTPRequestHandler):
     def do_POST(self) -> None:  # noqa: N802
         self._proxy()
 
+    def do_DELETE(self) -> None:  # noqa: N802
+        """Forward MCP streamable-HTTP session termination requests."""
+        self._proxy()
+
+    def do_HEAD(self) -> None:  # noqa: N802
+        """Forward endpoint health probes instead of returning BaseHTTP 501."""
+        self._proxy()
+
     def do_OPTIONS(self) -> None:  # noqa: N802
         self._proxy()
 

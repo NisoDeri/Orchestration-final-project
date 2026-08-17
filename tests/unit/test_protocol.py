@@ -196,6 +196,15 @@ def test_audit_accepts_all_negotiated_result_claims() -> None:
         assert AuditPayload.from_wire({**GOLDEN_AUDIT, "result_claim": claim}).result_claim
 
 
+def test_audit_accepts_kit_structured_result_claim() -> None:
+    payload = AuditPayload.from_wire({
+        **GOLDEN_AUDIT,
+        "result_claim": {"type": "capture", "winner": "police", "how": "claim"},
+    })
+    assert payload.result_claim == "capture"
+    assert payload.to_wire()["result_claim"] == "capture"
+
+
 # --- sealed_payload ----------------------------------------------------------------
 
 def test_sealed_payload_reproduces_golden_record_and_commit() -> None:

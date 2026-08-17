@@ -2,11 +2,14 @@
 version = "0.1.0"
 
 [game]
+mode = "counted"                # counted -> full-strength configured strategy
 group_name = "nis-yar1"
 group_id = "nis-yar1"
 members = ["Nissim Deri", "Yarden Tziar"]
 sub_game_number = 1
+fixed_role_odd = "thief"       # explicit agreement: nis-yar1 is thief in 1/3/5
 repos = { cop = "https://github.com/NisoDeri/nis-yar1-cop", thief = "https://github.com/NisoDeri/nis-yar1-thief" }
+github_commit = "3f2d02160174361e4cd40dc409b7df63e9cb22fe"
 mcp_servers = { cop = "https://duckling-judgingly-frigidly.ngrok-free.dev/cop/mcp", thief = "https://duckling-judgingly-frigidly.ngrok-free.dev/thief/mcp" }
 
 [belief]
@@ -59,16 +62,18 @@ max_lie_rate = 0.35
 
 [network]
 my_port = 8801
-opponent_url = "https://cop-mcp.alon.website/mcp"
+opponent_url = "https://counting-truce-childcare.ngrok-free.dev/mcp"
 turn_timeout_seconds = 180
 brain_deadline_seconds = 15.0   # wall-clock bound on our move (peer/brain_clock); a hung brain -> safe HOLD
 poll_interval_seconds = 0.5
 connect_timeout_seconds = 900
 retry_interval_seconds = 1.0
-audit_send_timeout_seconds = 10
+retry_backoff_seconds = 5.0
+audit_send_timeout_seconds = 180
 
 [email]
-recipient = "alonisrael.engel@gmail.com"
+recipient_friendly = "yardentziar@gmail.com, yanalserhan3@gmail.com"
+recipient_counted = "rmisegal+uoh26finalgame@gmail.com"
 sender = "yardentziar@gmail.com"
 enabled = true
 credentials_dir = "secrets"    # git-ignored; HW6 OAuth send-only token
