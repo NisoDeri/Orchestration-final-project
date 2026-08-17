@@ -411,8 +411,6 @@ def maybe_email(config: Any, summary: dict[str, Any], result: dict[str, Any],
             expected = int(summary.get("num_sub_games", 0) or 0)
         if int(result.get("num_sub_games", 0) or 0) < expected:
             return
-        if not bool((result.get("mutual_agreement") or {}).get("confirmed", False)):
-            return  # never auto-send a contradictory or incompletely audited friendly
         from pursuit.infra.email import GmailSender
         from pursuit.infra.gatekeeper import Gatekeeper
 

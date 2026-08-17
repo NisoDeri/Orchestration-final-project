@@ -162,19 +162,32 @@ def test_maybe_email_skips_partial_fixed_role_result(monkeypatch):
                                 "num_sub_games": 3})
 
 
-def test_maybe_email_skips_unconfirmed_result(monkeypatch):
-    def _forbidden(*a, **k):
-        raise AssertionError("unconfirmed result must not be emailed")
+def test_maybe_email_sends_honest_unconfirmed_final_result(monkeypatch):
+    calls = {}
 
-    monkeypatch.setattr(email_mod, "GmailSender", _forbidden)
+    class _FakeSender:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def send_result(self, subject, body_dict, to=None, sender=None):
+            calls["body"], calls["to"] = body_dict, to
+            return {"sent": True, "reason": "fake"}
+
     cfg = ConfigManager(
         {"rate_limiter_gatekeeper": {}, "network_and_league": {"num_games": 1}},
-        {"email": {"enabled": True}},
+        {"game": {"mode": "counted"},
+         "email": {"enabled": True,
+                   "recipient_counted": "rmisegal+uoh26finalgame@gmail.com"}},
         {})
-    maybe_email(cfg, _SUMMARY, {
+    result = {
         "_schema": "final_game_result", "game_id": "g", "num_sub_games": 1,
         "mutual_agreement": {"confirmed": False},
-    })
+    }
+    monkeypatch.setattr(email_mod, "GmailSender", _FakeSender)
+    maybe_email(cfg, _SUMMARY, result)
+    assert calls["body"] is result
+    assert calls["body"]["mutual_agreement"]["confirmed"] is False
+    assert calls["to"] == "rmisegal+uoh26finalgame@gmail.com"
 
 
 # --- CLI: replay + agent-vs-agent dispatch ---------------------------------------------------
