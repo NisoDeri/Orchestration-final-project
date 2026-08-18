@@ -99,8 +99,12 @@ class PeerMcpServer:
         ensure_port_free(self.host, self.port)
         thread = threading.Thread(
             target=self.mcp.run,
+            # stateless_http: don't require an mcp-session-id header on follow-up calls —
+            # some league peers (e.g. najamjad) initialize but don't echo the session id,
+            # which our stateful default rejects with 400 "Missing session ID". Our game
+            # state lives in the runtime, not the MCP session, so stateless is safe.
             kwargs={"transport": "http", "host": self.host, "port": self.port,
-                    "show_banner": False},
+                    "show_banner": False, "stateless_http": True},
             name=f"mcp-server-{self.role}",
             daemon=True,
         )
