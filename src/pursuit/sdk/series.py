@@ -113,6 +113,14 @@ def logical_subgame_numbers(config: Any, role: Role, count: int, alternate: bool
     if len(pair) != 2 or my_gid not in pair:
         return list(range(1, count + 1))
     first = pair[0] == my_gid
+    # Some opponents (e.g. najamjad) use the opposite convention — first-sorted opens as
+    # THIEF, not cop. game.parity_invert flips our odd/even role assignment to match theirs,
+    # agreed out-of-band; it changes neither the signed terms nor the game_uid.
+    try:
+        if bool(config.private("game.parity_invert")):
+            first = not first
+    except Exception:  # noqa: BLE001 — absent flag = default convention
+        pass
 
     def role_for(number: int) -> Role:
         odd = number % 2 == 1
