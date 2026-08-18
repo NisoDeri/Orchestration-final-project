@@ -60,7 +60,11 @@ def _real_transport(config: ConfigManager, role: Role, inboxes: PeerInboxes) -> 
     from pursuit.infra.transport import OpponentTransport
 
     host = str(_optional(config.private, "network.host", "127.0.0.1"))
-    PeerMcpServer(role.value, host, int(config.private("network.my_port")), inboxes).start()
+    # stateful (406) by default for reference-kit peers; opt-in stateless for peers that don't
+    # echo mcp-session-id (najamjad). Flag lives in the private [network] table.
+    stateless = bool(_optional(config.private, "network.stateless_http", False))
+    PeerMcpServer(role.value, host, int(config.private("network.my_port")), inboxes,
+                  stateless=stateless).start()
     return OpponentTransport(str(config.private("network.opponent_url")), _timeouts(config))
 
 

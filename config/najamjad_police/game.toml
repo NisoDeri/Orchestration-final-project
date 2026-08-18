@@ -3,14 +3,14 @@ version = "0.1.0"
 
 [game]
 parity_invert = true   # najamjad opens first-sorted as THIEF -> we are cop on 1/3/5
-mode = "friendly"   # friendly|counted; --mode counted for the real game
+mode = "counted"   # friendly|counted; --mode counted for the real game
 counted_games_so_far = 2   # completed: imreeyal (this counted game -> games_played 2)
 group_name = "nis-yar1"
 group_id = "nis-yar1"
 members = ["Nissim Deri", "Yarden Tziar"]
 sub_game_number = 1
 repos = { cop = "https://github.com/NisoDeri/nis-yar1-cop", thief = "https://github.com/NisoDeri/nis-yar1-thief" }
-mcp_servers = { cop = "https://duckling-judgingly-frigidly.ngrok-free.dev/cop/mcp", thief = "https://duckling-judgingly-frigidly.ngrok-free.dev/thief/mcp" }
+mcp_servers = { cop = "https://strategy-spyware-drinking-ken.trycloudflare.com/mcp", thief = "https://simon-executives-fence-remembered.trycloudflare.com/mcp" }
 
 [belief]
 # BeliefV2 config (STRATEGY.md §2, D6) — all keys required by BeliefV2.__init__
@@ -39,8 +39,8 @@ mobility_k = 4                # k-step horizon; default 3
 jail_min_mobility = 2         # stay same; default 2
 
 [strategy]
-police_class = "pursuit.strategy.police:InterceptorPoliceBrain"
-thief_class = "pursuit.strategy.thief:SurvivorThiefBrain"
+police_class = "pursuit.strategy.adaptive_police:AdaptivePoliceBrain"  # COUNTED surprise: cage-counter cop
+thief_class = "pursuit.strategy.center_thief:CenterThief"              # COUNTED surprise: centre-control evader
 profile_opponent = true   # E2 cross-sub-game lie-profiler seeds the next sub-game's r_0
 fuse_hints = true         # E1 live hint->belief fusion (book p.63); gated + non-fatal
 
@@ -59,6 +59,7 @@ max_lie_rate = 0.35
 [network]
 my_port = 8802
 opponent_url = "https://thief.4laboratory.com/mcp"
+stateless_http = true   # najamjad's client omits mcp-session-id; stateful would 400 them
 turn_timeout_seconds = 180
 brain_deadline_seconds = 15.0   # wall-clock bound on our move (peer/brain_clock); a hung brain -> safe HOLD
 poll_interval_seconds = 0.5

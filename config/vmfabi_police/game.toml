@@ -1,16 +1,18 @@
-# THIEF peer — PRIVATE local settings only. Shared/agreed terms live in game.json.
+# POLICE peer — PRIVATE local settings only. Shared/agreed terms live in game.json.
 version = "0.1.0"
 
 [game]
-parity_invert = true   # najamjad opens first-sorted as THIEF -> we are cop on 1/3/5
-mode = "counted"   # friendly|counted; --mode counted for the real game
-counted_games_so_far = 2   # completed: imreeyal (this counted game -> games_played 2)
+# no parity_invert: sorted pair ["nis-yar1","vm__fabi"] -> nis-yar1 is first -> we play
+# POLICE on odd sub-games, which is the league default (first-sorted = cop on odd). Matches
+# vm__fabi's "alphabetically-first group plays police in the odd sub-games".
+mode = "counted"   # friendly|counted; COUNTED — re-friendly verified 6-0, hashes + mail confirmed
+counted_games_so_far = 3   # completed counted: imreeyal, vibecode, najamjad
 group_name = "nis-yar1"
 group_id = "nis-yar1"
 members = ["Nissim Deri", "Yarden Tziar"]
 sub_game_number = 1
 repos = { cop = "https://github.com/NisoDeri/nis-yar1-cop", thief = "https://github.com/NisoDeri/nis-yar1-thief" }
-mcp_servers = { cop = "https://strategy-spyware-drinking-ken.trycloudflare.com/mcp", thief = "https://simon-executives-fence-remembered.trycloudflare.com/mcp" }
+mcp_servers = { cop = "https://ozone-bracelet-treatment-seq.trycloudflare.com/mcp", thief = "https://easy-occupations-shapes-done.trycloudflare.com/mcp" }
 
 [belief]
 # BeliefV2 config (STRATEGY.md §2, D6) — all keys required by BeliefV2.__init__
@@ -57,9 +59,9 @@ injection_penalty = 0.25
 max_lie_rate = 0.35
 
 [network]
-my_port = 8801
-opponent_url = "https://cop.4laboratory.com/mcp"
-stateless_http = true   # najamjad's client omits mcp-session-id; stateful would 400 them
+my_port = 8802
+opponent_url = "https://cop-rob-p2p.ngrok.app/mcp"   # vm__fabi: ONE process both roles, same URL
+# no stateless_http -> stateful default: bare GET returns 406, which vm__fabi's T-protocol requires
 turn_timeout_seconds = 180
 brain_deadline_seconds = 15.0   # wall-clock bound on our move (peer/brain_clock); a hung brain -> safe HOLD
 poll_interval_seconds = 0.5
@@ -68,7 +70,7 @@ retry_interval_seconds = 1.0
 audit_send_timeout_seconds = 10
 
 [email]
-recipient_friendly = "najikayal4@gmail.com, nissimderi123@gmail.com"
+recipient_friendly = "mironovichvasily@gmail.com, nissimderi123@gmail.com"
 recipient_counted = "rmisegal+uoh26finalgame@gmail.com"
 sender = "nissimderi123@gmail.com"
 enabled = true   # COUNTED: no auto-send; manual single report to lecturer AFTER both confirm 6/6
