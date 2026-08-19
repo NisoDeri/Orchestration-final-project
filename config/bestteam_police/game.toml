@@ -74,8 +74,8 @@ series_gate_timeout_seconds = 1800
 [email]
 recipient_friendly = "itay.malich2@gmail.com, nissimderi123@gmail.com"
 recipient_counted = "rmisegal+uoh26finalgame@gmail.com"
-sender = "nissimderi123@gmail.com"
-enabled = false
+sender = "yardentziar@gmail.com"
+enabled = true
 credentials_dir = "secrets"
 
 [paths]

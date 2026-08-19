@@ -138,10 +138,7 @@ def test_maybe_email_sends_through_gatekeeper_when_enabled(monkeypatch):
                                     "winner_group": "nis-yar1",
                                     "series_tie": False,
                                 }})
-    assert calls["subject"] == (
-        "P2P league SERIES result - nis-yar1-vs-opp - "
-        "winner=nis-yar1 - nis-yar1:20 opp:5"
-    )
+    assert calls["subject"] == "Police-Thief series result: winner nis-yar1"
     assert calls["body"]["_schema"] == "final_game_result"  # the result artifact was forwarded
     assert calls["to"] == "alon@example.com"
     assert calls["sender"] == "yarden@example.com"
