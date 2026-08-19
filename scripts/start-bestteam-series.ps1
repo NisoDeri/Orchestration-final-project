@@ -74,7 +74,8 @@ function New-PeerCommand {
         [string]$LogFile
     )
 
-    $roleRepo = Join-Path $reposRoot "nis-yar1-$Role"
+    $roleRepoName = if ($Role -eq "police") { "nis-yar1-cop" } else { "nis-yar1-thief" }
+    $roleRepo = Join-Path $reposRoot $roleRepoName
     $roleSource = Join-Path $roleRepo "src"
     if (-not (Test-Path -LiteralPath $roleSource -PathType Container)) {
         throw "Declared role repository is missing: $roleRepo"
