@@ -115,7 +115,8 @@ def run_peer(config_dir: str | Path, role: Role | str, num_games: int | None = N
              logs_dir: str | Path | None = None, sysinfo: dict[str, Any] | None = None,
              github_commit: str | None = None, observer: Any = None,
              alternate: bool = True, scent_dialect: str | None = None,
-             mode: str | None = None) -> dict[str, Any]:
+             mode: str | None = None, series_gate_dir: str | Path | None = None,
+             series_gate_timeout: float | None = None) -> dict[str, Any]:
     """Load + validate config, build the stack ONCE, run the series, return its summary.
 
     ``scent_dialect`` (optional) overrides ``pheromones.dialect`` at runtime — the
@@ -151,11 +152,25 @@ def run_peer(config_dir: str | Path, role: Role | str, num_games: int | None = N
     watchdog = Watchdog(float(config.game("network_and_league.watchdog_timeout_sec")),
                         lambda name: logger.warning("watchdog: '%s' heartbeat frozen", name))
     watchdog.start()
+    series_gate = None
+    if series_gate_dir is not None:
+        from pursuit.sdk.sequence import FileSeriesGate
+
+        gate_timeout = float(series_gate_timeout if series_gate_timeout is not None else
+                             _optional(config.private, "network.series_gate_timeout_seconds",
+                                       1800.0))
+
+        def report_gate(message: str) -> None:
+            print(f"LIVE role={my_role.value} event=series_gate {message}", flush=True)
+
+        series_gate = FileSeriesGate(series_gate_dir, timeout=gate_timeout,
+                                     reporter=report_gate)
     try:
         summary = run_series(
             config, my_role, games, transport, inboxes, keypair=keypair,
             brain_factory=lambda r: resolve_brain(config, r, rng), sysinfo=sysinfo,
             github_commit=commit, watchdog=watchdog, observer=observer, alternate=alternate,
+            series_gate=series_gate,
             logs_dir=logs_dir if logs_dir is not None
             else _optional(config.private, "paths.logs_dir", "logs"))
     finally:

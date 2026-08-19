@@ -90,7 +90,15 @@ armed only after a clean friendly both ways — see §1. Never gamble the one co
 
 ## 2 — PLAY
 
-1. Servers up by T-5. Start our peer (one process per role we own this window):
+1. Servers up by T-5. For the bestteam pairing, always use the visible-terminal launcher;
+   hidden/background peer launches are not allowed:
+   ```powershell
+   .\scripts\start-bestteam-series.ps1 -Mode friendly
+   .\scripts\start-bestteam-series.ps1 -Mode counted
+   ```
+   It opens one persistent terminal per role, prints live handshake/turn/audit progress, and
+   tees both streams into timestamped `.tunnels/bestteam-<mode>-*/` logs. For other pairings,
+   start our peer directly (one process per role we own this window):
    ```
    python -m pursuit peer --role police --config-dir config/police --gui
    python -m pursuit peer --role thief  --config-dir config/thief  --gui

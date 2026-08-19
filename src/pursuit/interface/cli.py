@@ -54,6 +54,10 @@ def build_parser() -> argparse.ArgumentParser:
                       help="friendly (report to both teams' inboxes, uncounted) or counted "
                            "(report to the LECTURER alone, +1 counter + diversity reward). "
                            "Default: the config's game.mode (shipped safe default: friendly)")
+    peer.add_argument("--series-gate-dir", default=None,
+                      help="shared per-launch directory enforcing global sub-game order")
+    peer.add_argument("--series-gate-timeout", type=float, default=None,
+                      help="seconds to wait for the preceding sub-game marker")
     lab = commands.add_parser("lab", help="paired-seed self-play / agent-vs-agent lab (D7)")
     lab.add_argument("--games", type=int, required=True, help="number of paired seeds")
     lab.add_argument("--seed", type=int, required=True, help="base seed")
@@ -83,7 +87,9 @@ def _run_peer(args: argparse.Namespace) -> dict:
         return run_live(config_dir, args.role)
     return run_peer(config_dir, args.role, num_games=args.games,
                     fake_opponent=args.fake_opponent, alternate=not args.fixed_role,
-                    scent_dialect=args.scent_dialect, mode=args.mode)
+                    scent_dialect=args.scent_dialect, mode=args.mode,
+                    series_gate_dir=args.series_gate_dir,
+                    series_gate_timeout=args.series_gate_timeout)
 
 
 def _run_lab(args: argparse.Namespace) -> dict:

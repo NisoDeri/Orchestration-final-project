@@ -77,6 +77,22 @@ class PeerRuntime:
         self.turn_timeout = float(config.private("network.turn_timeout_seconds"))
         self.audit_timeout = float(config.private("network.audit_send_timeout_seconds"))
 
+    def _progress(self, event: str, **details: Any) -> None:
+        """Print non-secret live progress without ever affecting game execution."""
+        try:
+            stamp = datetime.now(UTC).strftime("%H:%M:%S")
+            game = self.sub_game_number if self.sub_game_number is not None else "?"
+            fields = " ".join(
+                f"{key}={value}" for key, value in details.items() if value is not None
+            )
+            suffix = f" {fields}" if fields else ""
+            print(
+                f"[{stamp}] LIVE role={self.role.value} game={game} event={event}{suffix}",
+                flush=True,
+            )
+        except Exception:  # noqa: BLE001 - visibility must never alter the game
+            pass
+
     def _notify(self, status: str, hint_in: str = "", hint_out: str = "") -> None:
         """Push a board snapshot to the optional live observer; a viewer never breaks the game."""
         if self.observer is not None:
@@ -89,26 +105,41 @@ class PeerRuntime:
     def run(self) -> SubgameOutcome:
         """Handshake → step-0 seal → thief-first turn loop → mutual audit → outcome."""
         started_at = datetime.now(UTC).isoformat()
+        self._progress("starting")
         self.fsm.advance(State.NEGOTIATING)
         if self.handshake is None:  # the series may inject the pre-agreed handshake
             self.handshake = run_handshake(self.transport, AgreementsView(self.inboxes),
                                            self.config, self.keypair,
                                            sub_game_number=self.sub_game_number,
                                            role=self.role.value)
+        self._progress(
+            "handshake_locked",
+            opponent=self.handshake.opponent_identity.get("group_id", "unknown"),
+            game_id=self.handshake.game_id,
+        )
         self.log.step0_record(self.config, *self._step0_args, self.keypair,
                               sub_game_number=self.sub_game_number)
         self.fsm.advance(State.MY_TURN if self.role is Role.THIEF else State.OPP_TURN)
         try:
             result, winner = self._turn_loop()
-        except Exception:  # noqa: BLE001 — ANY mid-game crash (timeout/transport/brain/
+        except Exception as exc:  # noqa: BLE001 — ANY mid-game crash (timeout/transport/brain/
             result, winner = GameResult.TECHNICAL_LOSS, None  # belief) is a 0/0 loss; the
             # mandatory audit below STILL runs (A6) — a raise must never skip settlement.
+            self._progress("technical_loss", error=f"{type(exc).__name__}: {exc}")
         if self.fsm.state is not State.GAME_OVER:
             self.fsm.advance(State.GAME_OVER)
         self.fsm.advance(State.AUDITING)  # the audit runs on EVERY ending (D4/A6)
+        self._progress("audit_started")
         audit = exchange_audits(self.role, result, self.log, self.transport, self.inboxes.audits,
                                 self.deadlines, self.audit_timeout, self.handshake.opponent_pubkey,
                                 self.handler.commits, self.state.board)
+        self._progress(
+            "audit_finished",
+            outbound_accepted=audit.get("outbound_accepted"),
+            opponent_received=audit.get("opponent_received"),
+            passed=audit.get("passed"),
+            ignored_payloads=audit.get("ignored_payloads"),
+        )
         if audit["forgery"]:
             result, winner = GameResult.TECHNICAL_LOSS, None  # provable forgery (A9a)
         self.fsm.advance(State.DONE)
@@ -119,6 +150,14 @@ class PeerRuntime:
             self.state.board, tuple(self.config.game("board_and_agents.cop_start")),
             tuple(self.config.game("board_and_agents.thief_start")))
         ended_at = datetime.now(UTC).isoformat()
+        self._progress(
+            "complete",
+            result=result.value,
+            winner=None if winner is None else winner.value,
+            audit_passed=audit.get("passed"),
+            own_steps=self.state.step_number,
+            opponent_steps=self.handler.last_step,
+        )
         return SubgameOutcome(
             result=result, winner=winner, scores=self.table.score_subgame(result, winner),
             audit=audit, records=records, steps=self.state.step_number,
@@ -139,6 +178,15 @@ class PeerRuntime:
                     self.brain, self.state, self.belief, self.scent_mine, self.log,
                     self.transport, self.fsm, self.handler.last_hint, claim_response=response)
                 response = None
+                self._progress(
+                    "sent_turn",
+                    step=sent.step,
+                    action=sent.move_type.value,
+                    direction=None if sent.direction is None else sent.direction.value,
+                    position=list(self.state.position),
+                    barrier=None if sent.barrier_cell is None else list(sent.barrier_cell),
+                    terminal=sent.terminal,
+                )
                 self._notify("my_turn", self.handler.last_hint, sent.message.hint)
                 if sent.terminal:  # my concession (rule 21) or my survival claim (A5)
                     cr = sent.message.claim_response
@@ -152,6 +200,14 @@ class PeerRuntime:
             self.deadlines.disarm("opponent-turn")
             processed = self.handler.process(raw, self.state, self.belief,
                                              self.scent_reader, self.fsm)
+            self._progress(
+                "received_turn",
+                step=processed.step,
+                status=processed.kind,
+                barrier=None if processed.barrier_cell is None else list(processed.barrier_cell),
+                captured=processed.captured,
+                terminal=processed.game_over,
+            )
             self._notify("opp_turn", processed.hint)
             if processed.kind != TURN:  # duplicate or rule-5 breach: reject-and-drop
                 if processed.game_over:  # max_breaches consecutive rejects (D4)

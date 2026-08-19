@@ -134,7 +134,8 @@ def logical_subgame_numbers(config: Any, role: Role, count: int, alternate: bool
 def run_series(config: Any, role: Role, num_games: int, transport: Any, inboxes: Any, *,
                keypair: tuple[bytes, bytes], brain_factory: Any, sysinfo: dict[str, Any],
                github_commit: str, watchdog: Any = None, observer: Any = None,
-               logs_dir: str | Path | None = None, alternate: bool = True) -> dict[str, Any]:
+               logs_dir: str | Path | None = None, alternate: bool = True,
+               series_gate: Any = None) -> dict[str, Any]:
     """Play ``num_games`` sub-games; aggregate scores + the tie rule; emit logs + email.
 
     ``alternate`` (default True) is the reference role-swap: odd sub-games in my config role,
@@ -151,8 +152,9 @@ def run_series(config: Any, role: Role, num_games: int, transport: Any, inboxes:
     profiler = LieProfiler(config)  # E2 cross-sub-game lie-profiler (default off, non-fatal)
     logs: list[dict[str, Any]] = []  # per-sub-game docs -> the 4-artifact emission
     for number in logical_subgame_numbers(config, role, num_games, alternate):
+        if series_gate is not None:
+            series_gate.wait(number)
         inboxes.turns.drain()  # stale-turn hygiene between sub-games (INTEROP §2.4);
-        inboxes.audits.drain()  # safe: fresh turns only follow the new handshake
         role_now = role if (not alternate or number % 2 == 1) else role.opponent  # odd = my
         # config role; a fixed-role endpoint (alternate=False) plays every sub-game in it
         runtime = PeerRuntime(role_now, config, transport, inboxes,
@@ -161,6 +163,8 @@ def run_series(config: Any, role: Role, num_games: int, transport: Any, inboxes:
                               counted_games=counted_games(config), watchdog=watchdog,
                               observer=observer, sub_game_number=number)
         outcome = runtime.run()
+        if series_gate is not None:
+            series_gate.complete(number)
         game_id = outcome.game_id
         opp_gid = outcome.opponent_group or "opponent"
         rows.append({my_gid: outcome.scores[role_now],

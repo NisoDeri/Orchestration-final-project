@@ -11,6 +11,7 @@ the pubkey locked at the handshake, IS provable forgery → the caller adjudicat
 
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass
 from typing import Any
 
@@ -70,13 +71,36 @@ def exchange_audits(role: Role, result: GameResult, log: SealedLog, transport: A
     """
     mine = AuditPayload(sender=role.value, result_claim=result.value,
                         records=[AuditRecord(**rec) for rec in log.audit_reveal()])
-    transport.submit_audit(mine.to_wire())  # best-effort: errors suppressed on expiry
+    outbound = transport.submit_audit(mine.to_wire())
     audit: dict[str, Any] = {"passed": False, "forgery": False,
-                             "opponent_received": False, "steps": [], "failed_steps": []}
+                             "opponent_received": False, "steps": [], "failed_steps": [],
+                             "outbound_accepted": bool(outbound and outbound.get("ok")),
+                             "ignored_payloads": 0}
+    expected_sub_game = None
+    if mine.records:
+        expected_sub_game = mine.records[0].payload.get("sub_game_number")
     deadlines.arm("audit-exchange", audit_timeout)
+    expires = time.monotonic() + audit_timeout
     try:
-        theirs = AuditPayload.from_wire(audits_inbox.get(timeout=audit_timeout))
-    except (DeadlineError, TransportError):
+        while True:
+            remaining = expires - time.monotonic()
+            if remaining <= 0:
+                raise DeadlineError("audit exchange deadline expired")
+            try:
+                candidate = AuditPayload.from_wire(audits_inbox.get(timeout=remaining))
+            except TransportError:
+                audit["ignored_payloads"] += 1
+                continue
+            candidate_sub_game = None
+            if candidate.records:
+                candidate_sub_game = candidate.records[0].payload.get("sub_game_number")
+            if (candidate.sender != role.opponent.value or
+                    candidate_sub_game != expected_sub_game):
+                audit["ignored_payloads"] += 1
+                continue
+            theirs = candidate
+            break
+    except DeadlineError:
         return audit  # opponent may have exited (INTEROP §2.3) — absence != forgery
     finally:
         deadlines.disarm("audit-exchange")
